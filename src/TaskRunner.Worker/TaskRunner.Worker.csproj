@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>TaskRunner.Worker</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TaskRunner.Core\TaskRunner.Core.csproj" />
+    <ProjectReference Include="..\TaskRunner.Hangfire\TaskRunner.Hangfire.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.20" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="9.0.20" />
+    <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+  </ItemGroup>
+
+</Project>
