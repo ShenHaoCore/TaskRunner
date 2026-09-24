@@ -13,7 +13,8 @@ public sealed class AuthController(IOptions<TaskRunnerOptions> options, IHostEnv
 {
     [AllowAnonymous]
     [HttpPost("login", Name = "AdminLogin")]
-    [EndpointSummary("用 AdminApiKey 登录，写入 Cookie 供浏览器访问 Dashboard")]
+    [EndpointSummary("登录")]
+    [EndpointDescription("写入管理员 Cookie。")]
     public ActionResult Login(AdminLoginRequest request)
     {
         if (environment.IsDevelopment())
@@ -34,7 +35,7 @@ public sealed class AuthController(IOptions<TaskRunnerOptions> options, IHostEnv
 
     [Authorize(Policy = AdminAuthDefaults.Policy)]
     [HttpPost("logout", Name = "AdminLogout")]
-    [EndpointSummary("清除管理员 Cookie")]
+    [EndpointSummary("退出")]
     public ActionResult Logout()
     {
         Response.Cookies.Delete(AdminAuthDefaults.CookieName);

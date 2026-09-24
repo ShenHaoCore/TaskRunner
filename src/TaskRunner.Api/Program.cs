@@ -75,12 +75,14 @@ app.UseSerilogRequestLogging(options =>
     };
 });
 app.UseExceptionHandler();
+app.UseDefaultFiles();
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapHangfireDashboard(dashboardPath, new DashboardOptions
 {
-    DashboardTitle = "TaskRunner 任务调度中心",
+    DashboardTitle = "任务调度中心",
     DisplayStorageConnectionString = false,
     Authorization = [new AdminDashboardAuthorizationFilter()],
     IsReadOnlyFunc = _ =>
@@ -95,7 +97,7 @@ app.MapHangfireDashboard(dashboardPath, new DashboardOptions
 });
 
 app.MapControllers();
-app.MapGet("/", (IHostEnvironment environment) => Results.Ok(new
+app.MapGet("/info", (IHostEnvironment environment) => Results.Ok(new
 {
     name = "TaskRunner",
     role = "Client",
@@ -106,7 +108,6 @@ app.MapGet("/", (IHostEnvironment environment) => Results.Ok(new
     authLogin = "/api/auth/login"
 })).AllowAnonymous();
 
-// Development 下写操作策略仍要求 Admin 角色；认证处理器会自动签发 development 票据。
 app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 
 app.Logger.LogInformation(

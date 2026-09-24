@@ -12,7 +12,7 @@ namespace TaskRunner.Api.Controllers;
 public sealed class BackgroundJobsController(IJobCatalog catalog, ITaskScheduler scheduler) : ControllerBase
 {
     [HttpGet(Name = "ListBackgroundJobs")]
-    [EndpointSummary("获取即发即忘任务列表")]
+    [EndpointSummary("列表")]
     public ActionResult<IReadOnlyList<BackgroundJobView>> List()
         => Ok(catalog.BackgroundJobs
             .Select(job => new BackgroundJobView(job.JobId, job.JobName, job.JobType, job.Description))
@@ -20,7 +20,7 @@ public sealed class BackgroundJobsController(IJobCatalog catalog, ITaskScheduler
 
     [Authorize(Policy = AdminAuthDefaults.Policy)]
     [HttpPost("{jobId}/trigger", Name = "TriggerBackgroundJob")]
-    [EndpointSummary("手动触发后台任务")]
+    [EndpointSummary("触发")]
     public ActionResult<QueueJobResult> Trigger(string jobId)
     {
         var job = catalog.BackgroundJobs.FirstOrDefault(item => string.Equals(item.JobId, jobId, StringComparison.Ordinal));

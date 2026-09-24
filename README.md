@@ -13,11 +13,12 @@ dotnet run --project src/TaskRunner.Worker
 
 先启动 Api（迁移 + 注册 `[RecurringTask]`），再启动 Worker 执行任务。
 
-- 站点：http://localhost:5088
+- 首页：http://localhost:5088
 - Dashboard：http://localhost:5088/taskrunner
 - Scalar：http://localhost:5088/scalar
 - 任务 API：http://localhost:5088/api/tasks
 - 后台任务：http://localhost:5088/api/background-jobs
+- 服务元数据：http://localhost:5088/info
 - 登录（写 Cookie）：`POST /api/auth/login`，body `{"apiKey":"..."}`
 
 开发环境默认 LocalDB（`(localdb)\mssqllocaldb`）。**不要**让 Api 与 Worker 双进程共享 SQLite Hangfire 库，否则容易 `database is locked` 甚至原生崩溃。若必须用 SQLite，把 Development 改回 `Storage=Sqlite`；Worker 会强制 `WorkerCount=1`。

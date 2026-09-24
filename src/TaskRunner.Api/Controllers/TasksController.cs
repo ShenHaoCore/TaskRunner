@@ -18,7 +18,7 @@ public sealed class TasksController(
     IRuntimeSettingsStore settings) : ControllerBase
 {
     [HttpGet(Name = "ListTasks")]
-    [EndpointSummary("获取定时任务列表")]
+    [EndpointSummary("列表")]
     public async Task<ActionResult<IReadOnlyList<TaskConfigView>>> List(CancellationToken cancellationToken)
     {
         var configs = await repository.ListAsync(cancellationToken);
@@ -26,18 +26,18 @@ public sealed class TasksController(
     }
 
     [HttpGet("statistics", Name = "GetTaskStatistics")]
-    [EndpointSummary("获取任务统计")]
-    [EndpointDescription("返回成功、失败、排队和处理中的数量，数据来自 Hangfire。")]
+    [EndpointSummary("统计")]
+    [EndpointDescription("成功 / 失败 / 排队 / 处理中。")]
     public ActionResult<JobStatistics> Statistics() => Ok(monitoring.ReadStatistics());
 
     [HttpGet("settings/readonly", Name = "GetReadOnlyMode")]
-    [EndpointSummary("获取只读模式（共享库）")]
+    [EndpointSummary("只读状态")]
     public async Task<ActionResult<object>> GetReadOnly(CancellationToken cancellationToken)
         => Ok(new { readOnly = await settings.GetReadOnlyModeAsync(cancellationToken) });
 
     [Authorize(Policy = AdminAuthDefaults.Policy)]
     [HttpPut("settings/readonly", Name = "SetReadOnlyMode")]
-    [EndpointSummary("设置只读模式（写入共享库，Api/Worker 同时生效）")]
+    [EndpointSummary("设置只读")]
     public async Task<ActionResult<object>> SetReadOnly(SetReadOnlyRequest request, CancellationToken cancellationToken)
     {
         await settings.SetReadOnlyModeAsync(request.ReadOnly, cancellationToken);
@@ -45,7 +45,7 @@ public sealed class TasksController(
     }
 
     [HttpGet("{jobId}", Name = "GetTask")]
-    [EndpointSummary("获取单个定时任务")]
+    [EndpointSummary("详情")]
     public async Task<ActionResult<TaskConfigView>> Get(string jobId, CancellationToken cancellationToken)
     {
         var config = await repository.FindAsync(jobId, cancellationToken);
@@ -54,7 +54,7 @@ public sealed class TasksController(
     }
 
     [HttpGet("{jobId}/history", Name = "GetTaskHistory")]
-    [EndpointSummary("查看任务执行历史")]
+    [EndpointSummary("历史")]
     public async Task<ActionResult<IReadOnlyList<JobHistoryItem>>> History(
         string jobId,
         [FromQuery] int limit = 20,
@@ -67,7 +67,7 @@ public sealed class TasksController(
 
     [Authorize(Policy = AdminAuthDefaults.Policy)]
     [HttpPost("{jobId}/trigger", Name = "TriggerTask")]
-    [EndpointSummary("手动触发指定任务")]
+    [EndpointSummary("触发")]
     public async Task<ActionResult<QueueJobResult>> Trigger(string jobId, CancellationToken cancellationToken)
     {
         var config = await repository.FindAsync(jobId, cancellationToken);
@@ -78,7 +78,7 @@ public sealed class TasksController(
 
     [Authorize(Policy = AdminAuthDefaults.Policy)]
     [HttpPost("{jobId}/pause", Name = "PauseTask")]
-    [EndpointSummary("暂停定时任务")]
+    [EndpointSummary("暂停")]
     public async Task<ActionResult<TaskConfigView>> Pause(string jobId, CancellationToken cancellationToken)
     {
         var config = await repository.SetEnabledAsync(jobId, false, cancellationToken);
@@ -89,7 +89,7 @@ public sealed class TasksController(
 
     [Authorize(Policy = AdminAuthDefaults.Policy)]
     [HttpPost("{jobId}/resume", Name = "ResumeTask")]
-    [EndpointSummary("恢复定时任务")]
+    [EndpointSummary("恢复")]
     public async Task<ActionResult<TaskConfigView>> Resume(string jobId, CancellationToken cancellationToken)
     {
         var config = await repository.FindAsync(jobId, cancellationToken);
@@ -103,7 +103,7 @@ public sealed class TasksController(
 
     [Authorize(Policy = AdminAuthDefaults.Policy)]
     [HttpPut("{jobId}/cron", Name = "UpdateTaskCron")]
-    [EndpointSummary("更新 Cron 表达式")]
+    [EndpointSummary("改 Cron")]
     public async Task<ActionResult<TaskConfigView>> UpdateCron(string jobId, UpdateCronRequest request, CancellationToken cancellationToken)
     {
         try { CronExpressionGuard.EnsureValid(request.Cron); }
@@ -116,7 +116,7 @@ public sealed class TasksController(
 
     [Authorize(Policy = AdminAuthDefaults.Policy)]
     [HttpPut("{jobId}/parameters", Name = "UpdateTaskParameters")]
-    [EndpointSummary("更新任务 JSON 参数（预留扩展）")]
+    [EndpointSummary("改参数")]
     public async Task<ActionResult<TaskConfigView>> UpdateParameters(
         string jobId,
         UpdateParametersRequest request,
