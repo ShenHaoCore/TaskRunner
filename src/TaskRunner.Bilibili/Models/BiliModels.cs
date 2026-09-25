@@ -73,6 +73,66 @@ public sealed class PopularVideo
 
     [JsonPropertyName("title")]
     public string? Title { get; set; }
+
+    [JsonPropertyName("duration")]
+    public int? Duration { get; set; }
+}
+
+public sealed class FollowingInfo
+{
+    [JsonPropertyName("mid")]
+    public long Mid { get; set; }
+
+    [JsonPropertyName("uname")]
+    public string? Uname { get; set; }
+}
+
+public sealed class FollowingListData
+{
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
+
+    [JsonPropertyName("list")]
+    public List<FollowingInfo>? List { get; set; }
+}
+
+public sealed class UpVideoInfo
+{
+    [JsonPropertyName("aid")]
+    public long Aid { get; set; }
+
+    [JsonPropertyName("bvid")]
+    public string? Bvid { get; set; }
+
+    [JsonPropertyName("cid")]
+    public long Cid { get; set; }
+
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("duration")]
+    public int? Duration { get; set; }
+}
+
+public sealed class UpVideoPage
+{
+    [JsonPropertyName("count")]
+    public int Count { get; set; }
+}
+
+public sealed class UpVideoList
+{
+    [JsonPropertyName("vlist")]
+    public List<UpVideoInfo>? Vlist { get; set; }
+}
+
+public sealed class UpVideoListData
+{
+    [JsonPropertyName("page")]
+    public UpVideoPage? Page { get; set; }
+
+    [JsonPropertyName("list")]
+    public UpVideoList? List { get; set; }
 }
 
 public sealed class LiveWalletStatus
@@ -88,4 +148,39 @@ public sealed class LiveWalletStatus
 
     [JsonPropertyName("silver_2_coin_left")]
     public int Silver2CoinLeft { get; set; }
+}
+
+/// <summary>大会员权益项（type=1 B 币券，type=2 漫画福利券；state=0 未领取）。</summary>
+public sealed class VipPrivilegeInfo
+{
+    [JsonPropertyName("type")]
+    public int Type { get; set; }
+
+    [JsonPropertyName("state")]
+    public int State { get; set; }
+
+    [JsonPropertyName("expire_time")]
+    public long ExpireTime { get; set; }
+}
+
+public sealed class VipPrivilegeList
+{
+    [JsonPropertyName("list")]
+    public List<VipPrivilegeInfo>? List { get; set; }
+}
+
+public sealed class ChargeWalletData
+{
+    [JsonPropertyName("wallet")]
+    public BcoinWallet? Wallet { get; set; }
+
+    /// <summary>B 币券余额。</summary>
+    [JsonPropertyName("coupon_balance")]
+    public decimal CouponBalance { get; set; }
+}
+
+public sealed class BcoinWallet
+{
+    [JsonPropertyName("bcoin_balance")]
+    public decimal BcoinBalance { get; set; }
 }

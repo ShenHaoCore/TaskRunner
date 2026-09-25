@@ -18,4 +18,16 @@ public sealed class BilibiliOptions
     public bool EnableLiveSign { get; set; } = true;
 
     public bool EnableSilver2Coin { get; set; } = true;
+
+    /// <summary>每日观看视频后点赞（独立于投币的 select_like）。</summary>
+    public bool EnableLike { get; set; } = true;
+
+    /// <summary>每月 1 号自动领取大会员 B 币券与漫画福利券。</summary>
+    public bool EnableVipPrivilege { get; set; } = true;
+
+    /// <summary>每月最后一天将 B 币券余额用于充电。</summary>
+    public bool EnableCharge { get; set; } = true;
+
+    /// <summary>充电目标 UP 主 mid，0 表示为自己充电。</summary>
+    public long ChargeUpMid { get; set; }
 }

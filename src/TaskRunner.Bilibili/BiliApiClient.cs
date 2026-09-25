@@ -7,8 +7,7 @@ namespace TaskRunner.Bilibili;
 
 public sealed class BiliApiClient
 {
-    public const string BrowserUserAgent =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+    public const string BrowserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
     private readonly HttpClient _http;
     private readonly IBilibiliCookieStore _cookieStore;
@@ -27,7 +26,7 @@ public sealed class BiliApiClient
     public async Task EnsureBrowserCookiesAsync(CancellationToken cancellationToken)
     {
         var before = Cookie;
-        using var request = CreateRequest(HttpMethod.Get, "https://www.bilibili.com/", "https://www.bilibili.com/", "https://www.bilibili.com");
+        using var request = CreateRequest(HttpMethod.Get, BiliEndpoints.WwwHome, BiliEndpoints.WwwHome, BiliEndpoints.WwwOrigin);
         using var response = await _http.SendAsync(request, cancellationToken);
         if (!response.Headers.TryGetValues("Set-Cookie", out var setCookies))
         {
@@ -47,17 +46,23 @@ public sealed class BiliApiClient
     }
 
     public Task<BiliApiResponse<NavData>> GetNavAsync(CancellationToken cancellationToken) =>
-        GetAsync<NavData>("https://api.bilibili.com/x/web-interface/nav", cancellationToken);
+        GetAsync<NavData>(BiliEndpoints.Nav, cancellationToken);
 
     public Task<BiliApiResponse<DailyTaskInfo>> GetDailyTaskAsync(CancellationToken cancellationToken) =>
         GetAsync<DailyTaskInfo>(
-            "https://api.bilibili.com/x/member/web/exp/reward",
+            BiliEndpoints.DailyTask,
             cancellationToken,
-            referer: "https://account.bilibili.com/account/home",
-            origin: "https://account.bilibili.com");
+            referer: BiliEndpoints.AccountHome,
+            origin: BiliEndpoints.AccountOrigin);
 
     public Task<BiliApiResponse<PopularListData>> GetPopularAsync(CancellationToken cancellationToken) =>
-        GetAsync<PopularListData>("https://api.bilibili.com/x/web-interface/popular?ps=10&pn=1", cancellationToken);
+        GetAsync<PopularListData>(BiliEndpoints.Popular, cancellationToken);
+
+    public Task<BiliApiResponse<FollowingListData>> GetFollowingsAsync(long vmid, CancellationToken cancellationToken) =>
+        GetAsync<FollowingListData>($"{BiliEndpoints.Followings}?vmid={vmid}&pn=1&ps=50", cancellationToken);
+
+    public Task<BiliApiResponse<UpVideoListData>> GetUpVideosAsync(long mid, int pn, CancellationToken cancellationToken) =>
+        GetAsync<UpVideoListData>($"{BiliEndpoints.UpVideos}?mid={mid}&ps=30&pn={pn}", cancellationToken);
 
     public async Task<BiliApiResponse> ShareVideoAsync(long aid, CancellationToken cancellationToken)
     {
@@ -70,7 +75,7 @@ public sealed class BiliApiClient
             ["source"] = "web_normal",
             ["ga"] = "1"
         });
-        return await PostAsync("https://api.bilibili.com/x/web-interface/share/add", content, cancellationToken);
+        return await PostAsync(BiliEndpoints.ShareAdd, content, cancellationToken);
     }
 
     public async Task<BiliApiResponse> HeartbeatAsync(
@@ -98,7 +103,7 @@ public sealed class BiliApiClient
             ["dt"] = "2",
             ["play_type"] = "3"
         });
-        var url = $"https://api.bilibili.com/x/click-interface/web/heartbeat?aid={aid}&played_time={playedTime}";
+        var url = $"{BiliEndpoints.Heartbeat}?aid={aid}&played_time={playedTime}";
         return await PostAsync(url, content, cancellationToken);
     }
 
@@ -113,24 +118,21 @@ public sealed class BiliApiClient
             ["cross_domain"] = "true",
             ["csrf"] = csrf
         });
-        return await PostAsync("https://api.bilibili.com/x/web-interface/coin/add", content, cancellationToken);
+        return await PostAsync(BiliEndpoints.CoinAdd, content, cancellationToken);
     }
 
     public async Task<BiliApiResponse> MangaClockInAsync(CancellationToken cancellationToken)
     {
         // 漫画站要求 Origin/Referer 为 manga.bilibili.com；空 JSON 体比无 Content 更稳妥。
         using var content = new StringContent("{}", Encoding.UTF8, "application/json");
-        return await PostAsync(
-            "https://manga.bilibili.com/twirp/activity.v1.Activity/ClockIn?platform=android",
-            content,
-            cancellationToken);
+        return await PostAsync(BiliEndpoints.MangaClockIn, content, cancellationToken);
     }
 
     public Task<BiliApiResponse> LiveSignAsync(CancellationToken cancellationToken) =>
-        GetAsResponseAsync("https://api.live.bilibili.com/xlive/web-ucenter/v1/sign/DoSign", cancellationToken);
+        GetAsResponseAsync(BiliEndpoints.LiveSign, cancellationToken);
 
     public Task<BiliApiResponse<LiveWalletStatus>> GetLiveWalletStatusAsync(CancellationToken cancellationToken) =>
-        GetAsync<LiveWalletStatus>("https://api.live.bilibili.com/xlive/revenue/v1/wallet/getStatus", cancellationToken);
+        GetAsync<LiveWalletStatus>(BiliEndpoints.LiveWalletStatus, cancellationToken);
 
     public async Task<BiliApiResponse> Silver2CoinAsync(CancellationToken cancellationToken)
     {
@@ -140,7 +142,51 @@ public sealed class BiliApiClient
             ["csrf"] = csrf,
             ["csrf_token"] = csrf
         });
-        return await PostAsync("https://api.live.bilibili.com/xlive/revenue/v1/wallet/silver2coin", content, cancellationToken);
+        return await PostAsync(BiliEndpoints.Silver2Coin, content, cancellationToken);
+    }
+
+    public async Task<BiliApiResponse> LikeAsync(long aid, CancellationToken cancellationToken)
+    {
+        var csrf = RequireCsrf();
+        using var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["aid"] = aid.ToString(),
+            ["like"] = "1",
+            ["csrf"] = csrf
+        });
+        return await PostAsync(BiliEndpoints.LikeAdd, content, cancellationToken);
+    }
+
+    public Task<BiliApiResponse<VipPrivilegeList>> GetVipPrivilegesAsync(CancellationToken cancellationToken) =>
+        GetAsync<VipPrivilegeList>(BiliEndpoints.VipPrivilegeList, cancellationToken);
+
+    public async Task<BiliApiResponse> ReceiveVipPrivilegeAsync(int type, CancellationToken cancellationToken)
+    {
+        var csrf = RequireCsrf();
+        using var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["type"] = type.ToString(),
+            ["csrf"] = csrf
+        });
+        return await PostAsync(BiliEndpoints.VipPrivilegeReceive, content, cancellationToken);
+    }
+
+    public Task<BiliApiResponse<ChargeWalletData>> GetChargeWalletAsync(CancellationToken cancellationToken) =>
+        GetAsync<ChargeWalletData>(BiliEndpoints.ChargeWallet, cancellationToken);
+
+    public async Task<BiliApiResponse> ChargeQuickAsync(long mid, decimal num, CancellationToken cancellationToken)
+    {
+        var csrf = RequireCsrf();
+        using var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["bp_num"] = num.ToString("0"),
+            ["is_bp_remains_prior"] = "true",
+            ["up_mid"] = mid.ToString(),
+            ["otype"] = "up",
+            ["oid"] = mid.ToString(),
+            ["csrf"] = csrf
+        });
+        return await PostAsync(BiliEndpoints.ChargeQuick, content, cancellationToken);
     }
 
     private string RequireCsrf()
@@ -215,11 +261,7 @@ public sealed class BiliApiClient
         }
     }
 
-    private HttpRequestMessage CreateRequest(
-        HttpMethod method,
-        string url,
-        string? referer = null,
-        string? origin = null)
+    private HttpRequestMessage CreateRequest(HttpMethod method, string url, string? referer = null, string? origin = null)
     {
         var request = new HttpRequestMessage(method, url);
         var cookie = Cookie.Raw;
@@ -230,22 +272,9 @@ public sealed class BiliApiClient
 
         if (referer is null || origin is null)
         {
-            var host = new Uri(url).Host;
-            if (host.Contains("manga.bilibili.com", StringComparison.OrdinalIgnoreCase))
-            {
-                referer ??= "https://manga.bilibili.com/";
-                origin ??= "https://manga.bilibili.com";
-            }
-            else if (host.Contains("live.bilibili.com", StringComparison.OrdinalIgnoreCase))
-            {
-                referer ??= "https://link.bilibili.com/";
-                origin ??= "https://link.bilibili.com";
-            }
-            else
-            {
-                referer ??= "https://www.bilibili.com/";
-                origin ??= "https://www.bilibili.com";
-            }
+            var (defaultReferer, defaultOrigin) = BiliEndpoints.ResolveHeaders(url);
+            referer ??= defaultReferer;
+            origin ??= defaultOrigin;
         }
 
         request.Headers.TryAddWithoutValidation("Referer", referer);
