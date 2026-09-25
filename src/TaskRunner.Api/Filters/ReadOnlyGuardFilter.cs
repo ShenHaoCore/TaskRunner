@@ -1,23 +1,23 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using TaskRunner.Core.Services;
+using Microsoft.Extensions.Options;
+using TaskRunner.Core.Common;
 
 namespace TaskRunner.Api.Filters;
 
-public sealed class ReadOnlyGuardFilter(IRuntimeSettingsStore settings) : IAsyncActionFilter
+public sealed class ReadOnlyGuardFilter(IOptions<TaskRunnerOptions> options) : IAsyncActionFilter
 {
-    public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+    public Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
-        if (!HttpMethods.IsGet(context.HttpContext.Request.Method)
-            && await settings.GetReadOnlyModeAsync(context.HttpContext.RequestAborted))
+        if (!HttpMethods.IsGet(context.HttpContext.Request.Method) && options.Value.ReadOnlyMode)
         {
-            context.Result = new ObjectResult(new { message = "当前为只读模式。" })
+            context.Result = new ObjectResult(new { message = "当前为只读模式（Hangfire:ReadOnlyMode）。" })
             {
                 StatusCode = StatusCodes.Status403Forbidden
             };
-            return;
+            return Task.CompletedTask;
         }
 
-        await next();
+        return next();
     }
 }

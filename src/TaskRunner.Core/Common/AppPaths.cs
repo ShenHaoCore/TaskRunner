@@ -1,5 +1,3 @@
-using Microsoft.Data.Sqlite;
-
 namespace TaskRunner.Core.Common;
 
 public static class AppPaths
@@ -22,6 +20,7 @@ public static class AppPaths
         return null;
     }
 
+    /// <summary>把形如 <c>Data Source=relative/path.db</c> 的连接串解析为绝对路径；裸路径原样接受。</summary>
     public static string ResolveSqliteFile(string configured, string contentRoot)
     {
         if (string.IsNullOrWhiteSpace(configured))
@@ -35,9 +34,13 @@ public static class AppPaths
         }
 
         var dataSource = configured;
-        if (configured.Contains('='))
+        foreach (var part in configured.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
         {
-            dataSource = new SqliteConnectionStringBuilder(configured).DataSource;
+            if (part.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
+            {
+                dataSource = part["Data Source=".Length..].Trim();
+                break;
+            }
         }
 
         if (!Path.IsPathRooted(dataSource))

@@ -12,7 +12,7 @@ using TaskRunner.Core.Persistence;
 namespace TaskRunner.Core.Persistence.Migrations
 {
     [DbContext(typeof(TaskRunnerDbContext))]
-    [Migration("20260921070026_InitialCreate")]
+    [Migration("20260925071040_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -24,41 +24,6 @@ namespace TaskRunner.Core.Persistence.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("TaskRunner.Core.Models.RuntimeSetting", b =>
-                {
-                    b.Property<string>("Key")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Value")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.HasKey("Key");
-
-                    b.ToTable("RuntimeSettings", (string)null);
-                });
-
-            modelBuilder.Entity("TaskRunner.Core.Models.SyncWindow", b =>
-                {
-                    b.Property<string>("WindowKey")
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("WindowKey");
-
-                    b.HasIndex("CreatedAt");
-
-                    b.ToTable("SyncWindows", (string)null);
-                });
 
             modelBuilder.Entity("TaskRunner.Core.Models.TaskConfig", b =>
                 {
@@ -99,9 +64,6 @@ namespace TaskRunner.Core.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Parameters")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");

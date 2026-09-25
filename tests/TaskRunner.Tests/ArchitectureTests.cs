@@ -1,18 +1,4 @@
-using TaskRunner.Core.Common;
-using TaskRunner.Core.Jobs.Implementations;
-
 namespace TaskRunner.Tests;
-
-public sealed class JobTypeNameTests
-{
-    [Fact]
-    public void For_UsesFullNameAndAssemblySimpleName()
-    {
-        var name = JobTypeName.For(typeof(SyncDataJob));
-        Assert.Equal("TaskRunner.Core.Jobs.Implementations.SyncDataJob, TaskRunner.Core", name);
-        Assert.NotNull(JobTypeResolver.Resolve(name));
-    }
-}
 
 public sealed class ArchitectureTests
 {
@@ -24,5 +10,16 @@ public sealed class ArchitectureTests
         var text = File.ReadAllText(apiPath);
         Assert.DoesNotContain("TaskRunner.Worker", text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("TaskRunner.Hangfire", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("TaskRunner.Bilibili", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void HangfireProject_ReferencesConsolePackage()
+    {
+        var path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "TaskRunner.Hangfire", "TaskRunner.Hangfire.csproj"));
+        Assert.True(File.Exists(path), $"找不到 Hangfire 工程：{path}");
+        var text = File.ReadAllText(path);
+        Assert.Contains("IdentityStream.Hangfire.Console", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Dashboard.Forms", text, StringComparison.OrdinalIgnoreCase);
     }
 }

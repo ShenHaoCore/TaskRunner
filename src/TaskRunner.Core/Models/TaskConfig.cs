@@ -14,8 +14,6 @@ public sealed class TaskConfig
 
     public string JobType { get; set; } = string.Empty;
 
-    public string? Parameters { get; set; }
-
     public string? Description { get; set; }
 
     public DateTime CreatedAt { get; set; }

@@ -69,60 +69,41 @@ public static class RecurringJobScanner
     }
 }
 
-public static class BackgroundJobScanner
-{
-    public static IReadOnlyList<BackgroundJobDescriptor> Scan(Assembly assembly)
-    {
-        var jobs = new List<BackgroundJobDescriptor>();
-        foreach (var type in RecurringJobScanner.GetLoadableTypes(assembly))
-        {
-            if (type is not { IsClass: true, IsAbstract: false, IsPublic: true })
-            {
-                continue;
-            }
-
-            var attribute = type.GetCustomAttribute<BackgroundTaskAttribute>();
-            if (attribute is null)
-            {
-                continue;
-            }
-
-            if (!typeof(IBackgroundJob).IsAssignableFrom(type))
-            {
-                throw new InvalidOperationException($"{type.FullName} 标记了 BackgroundTask，但没有实现 IBackgroundJob。");
-            }
-
-            jobs.Add(new BackgroundJobDescriptor(
-                JobIdGenerator.Create(type, attribute.JobId),
-                string.IsNullOrWhiteSpace(attribute.Name) ? type.Name : attribute.Name.Trim(),
-                JobTypeName.For(type),
-                type,
-                attribute.Description));
-        }
-
-        RecurringJobScanner.EnsureUnique(jobs.Select(job => job.JobId));
-        return jobs.OrderBy(job => job.JobId, StringComparer.Ordinal).ToList();
-    }
-}
-
 public interface IJobCatalog
 {
     IReadOnlyList<RecurringJobDescriptor> RecurringJobs { get; }
-
-    IReadOnlyList<BackgroundJobDescriptor> BackgroundJobs { get; }
 }
 
 public sealed class JobCatalog : IJobCatalog
 {
-    public JobCatalog(Assembly assembly)
+    public JobCatalog(params Assembly[] assemblies)
     {
-        RecurringJobs = RecurringJobScanner.Scan(assembly);
-        BackgroundJobs = BackgroundJobScanner.Scan(assembly);
+        ArgumentNullException.ThrowIfNull(assemblies);
+        if (assemblies.Length == 0)
+        {
+            throw new ArgumentException("至少需要一个程序集。", nameof(assemblies));
+        }
+
+        var recurring = new List<RecurringJobDescriptor>();
+        foreach (var assembly in assemblies.Distinct())
+        {
+            recurring.AddRange(RecurringJobScanner.Scan(assembly));
+        }
+
+        RecurringJobScanner.EnsureUnique(recurring.Select(job => job.JobId));
+        RecurringJobs = recurring.OrderBy(job => job.JobId, StringComparer.Ordinal).ToList();
     }
 
-    public static JobCatalog CreateDefault() => new(typeof(IRecurringJob).Assembly);
+    public static JobCatalog CreateDefault(params Assembly[] extraAssemblies)
+    {
+        var assemblies = new List<Assembly> { typeof(IRecurringJob).Assembly };
+        if (extraAssemblies is { Length: > 0 })
+        {
+            assemblies.AddRange(extraAssemblies);
+        }
+
+        return new JobCatalog(assemblies.ToArray());
+    }
 
     public IReadOnlyList<RecurringJobDescriptor> RecurringJobs { get; }
-
-    public IReadOnlyList<BackgroundJobDescriptor> BackgroundJobs { get; }
 }

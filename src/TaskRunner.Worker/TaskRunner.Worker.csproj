@@ -8,6 +8,12 @@
   <ItemGroup>
     <ProjectReference Include="..\TaskRunner.Core\TaskRunner.Core.csproj" />
     <ProjectReference Include="..\TaskRunner.Hangfire\TaskRunner.Hangfire.csproj" />
+    <ProjectReference Include="..\TaskRunner.Bilibili\TaskRunner.Bilibili.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\appsettings.shared.json" Link="appsettings.shared.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\appsettings.Development.shared.json" Link="appsettings.Development.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

@@ -6,7 +6,8 @@ public interface ITaskScheduler
 
     void RemoveRecurring(string jobId);
 
-    string EnqueueRecurring(string jobId, string jobType);
+    /// <summary>删除 Hangfire 中不在 keepJobIds 内的 recurring（含仅存于 Hangfire、已不在代码/库中的残留）。</summary>
+    IReadOnlyList<string> PruneRecurringExcept(IReadOnlyCollection<string> keepJobIds);
 
-    string EnqueueBackground(string jobId, string jobType);
+    string Enqueue(string jobId, string jobType);
 }

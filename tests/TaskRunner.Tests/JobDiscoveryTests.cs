@@ -14,6 +14,15 @@ public sealed class CoreBoundaryTests
         Assert.DoesNotContain(references, reference =>
             reference.Name?.Contains("Hangfire", StringComparison.OrdinalIgnoreCase) == true);
     }
+
+    [Fact]
+    public void CoreProject_DoesNotReferenceHangfirePackages()
+    {
+        var corePath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "TaskRunner.Core", "TaskRunner.Core.csproj"));
+        Assert.True(File.Exists(corePath), $"找不到 Core 工程：{corePath}");
+        var text = File.ReadAllText(corePath);
+        Assert.DoesNotContain("Hangfire", text, StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 public sealed class JobIdGeneratorTests
@@ -59,15 +68,10 @@ public sealed class CronExpressionGuardTests
 public sealed class JobScannerTests
 {
     [Fact]
-    public void Scan_FindsAttributedJobsInCore()
+    public void Scan_CoreHasNoBuiltInJobs()
     {
         var jobs = RecurringJobScanner.Scan(typeof(IRecurringJob).Assembly);
-        Assert.Contains(jobs, job => job.JobId == "sync-data" && job.Cron == "*/5 * * * * *" && job.EnabledByDefault);
-        Assert.Contains(jobs, job => job.JobId == "cleanup-expired-data");
-        Assert.Contains(jobs, job => job.JobId == "flaky-demo" && !job.EnabledByDefault);
-
-        var background = BackgroundJobScanner.Scan(typeof(IRecurringJob).Assembly);
-        Assert.Contains(background, job => job.JobId == "send-notification");
+        Assert.Empty(jobs);
     }
 
     [Fact]

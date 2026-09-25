@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using TaskRunner.Api.Auth;
+using TaskRunner.Api.Contracts;
 using TaskRunner.Core.Common;
 
 namespace TaskRunner.Api.Controllers;

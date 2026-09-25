@@ -1,239 +1,279 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>TaskRunner</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
-  <style>
-    :root {
-      --bg0: #0f1419;
-      --bg1: #1a2332;
-      --ink: #e8eef6;
-      --muted: #8b9bb4;
-      --line: rgba(232, 238, 246, 0.12);
-      --accent: #3d9cfd;
-      --accent-dim: rgba(61, 156, 253, 0.16);
-      --ok: #3ecf8e;
-      --warn: #f0b429;
-      --bad: #f07178;
-    }
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TaskRunner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --bg0: #0f1419;
+            --bg1: #1a2332;
+            --ink: #e8eef6;
+            --muted: #8b9bb4;
+            --line: rgba(232, 238, 246, 0.12);
+            --accent: #3d9cfd;
+            --accent-dim: rgba(61, 156, 253, 0.16);
+            --ok: #3ecf8e;
+            --warn: #f0b429;
+            --bad: #f07178;
+        }
 
-    * { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; }
-    body {
-      font-family: "Noto Sans SC", "Segoe UI", sans-serif;
-      color: var(--ink);
-      background:
-        radial-gradient(1200px 600px at 10% -10%, rgba(61, 156, 253, 0.18), transparent 55%),
-        radial-gradient(900px 500px at 100% 0%, rgba(62, 207, 142, 0.08), transparent 50%),
-        linear-gradient(160deg, var(--bg0), var(--bg1) 55%, #121820);
-      min-height: 100%;
-    }
+        * {
+            box-sizing: border-box;
+        }
 
-    .wrap {
-      max-width: 920px;
-      margin: 0 auto;
-      padding: 12vh 24px 48px;
-    }
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
 
-    .brand {
-      font-family: "JetBrains Mono", ui-monospace, monospace;
-      font-size: clamp(2.4rem, 6vw, 3.6rem);
-      font-weight: 500;
-      letter-spacing: -0.04em;
-      margin: 0 0 12px;
-      line-height: 1.05;
-    }
+        body {
+            font-family: "Noto Sans SC", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background: radial-gradient(1200px 600px at 10% -10%, rgba(61, 156, 253, 0.18), transparent 55%), radial-gradient(900px 500px at 100% 0%, rgba(62, 207, 142, 0.08), transparent 50%), linear-gradient(160deg, var(--bg0), var(--bg1) 55%, #121820);
+            min-height: 100%;
+        }
 
-    .brand span { color: var(--accent); }
+        .wrap {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 12vh 24px 48px;
+        }
 
-    .lead {
-      margin: 0 0 36px;
-      max-width: 36rem;
-      color: var(--muted);
-      font-size: 1.05rem;
-      line-height: 1.6;
-    }
+        .brand {
+            font-family: "JetBrains Mono", ui-monospace, monospace;
+            font-size: clamp(2.4rem, 6vw, 3.6rem);
+            font-weight: 500;
+            letter-spacing: -0.04em;
+            margin: 0 0 12px;
+            line-height: 1.05;
+        }
 
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 48px;
-    }
+            .brand span {
+                color: var(--accent);
+            }
 
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 12px 18px;
-      border-radius: 10px;
-      text-decoration: none;
-      font-weight: 500;
-      font-size: 0.95rem;
-      border: 1px solid var(--line);
-      transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
-    }
+        .lead {
+            margin: 0 0 36px;
+            max-width: 36rem;
+            color: var(--muted);
+            font-size: 1.05rem;
+            line-height: 1.6;
+        }
 
-    .btn:hover { transform: translateY(-1px); }
-    .btn-primary {
-      background: var(--accent);
-      color: #061018;
-      border-color: transparent;
-    }
-    .btn-primary:hover { background: #62b0ff; }
-    .btn-ghost {
-      background: var(--accent-dim);
-      color: var(--ink);
-    }
-    .btn-ghost:hover { border-color: rgba(61, 156, 253, 0.45); }
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 48px;
+        }
 
-    .panel {
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      background: rgba(15, 20, 25, 0.55);
-      backdrop-filter: blur(8px);
-      padding: 20px 22px;
-    }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 18px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            border: 1px solid var(--line);
+            transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+        }
 
-    .panel h2 {
-      margin: 0 0 14px;
-      font-size: 0.85rem;
-      font-weight: 500;
-      color: var(--muted);
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
+            .btn:hover {
+                transform: translateY(-1px);
+            }
 
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap: 12px;
-    }
+        .btn-primary {
+            background: var(--accent);
+            color: #061018;
+            border-color: transparent;
+        }
 
-    .stat {
-      padding: 12px 14px;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--line);
-    }
+            .btn-primary:hover {
+                background: #62b0ff;
+            }
 
-    .stat .label {
-      display: block;
-      font-size: 0.78rem;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
+        .btn-ghost {
+            background: var(--accent-dim);
+            color: var(--ink);
+        }
 
-    .stat .value {
-      font-family: "JetBrains Mono", ui-monospace, monospace;
-      font-size: 1.35rem;
-      font-weight: 500;
-    }
+            .btn-ghost:hover {
+                border-color: rgba(61, 156, 253, 0.45);
+            }
 
-    .stat.ok .value { color: var(--ok); }
-    .stat.bad .value { color: var(--bad); }
-    .stat.warn .value { color: var(--warn); }
+        .panel {
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: rgba(15, 20, 25, 0.55);
+            backdrop-filter: blur(8px);
+            padding: 20px 22px;
+        }
 
-    .meta {
-      margin-top: 18px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px 18px;
-      font-size: 0.85rem;
-      color: var(--muted);
-    }
+            .panel h2 {
+                margin: 0 0 14px;
+                font-size: 0.85rem;
+                font-weight: 500;
+                color: var(--muted);
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+            }
 
-    .meta a { color: var(--accent); text-decoration: none; }
-    .meta a:hover { text-decoration: underline; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+        }
 
-    .hint {
-      margin-top: 10px;
-      font-size: 0.8rem;
-      color: var(--muted);
-      min-height: 1.2em;
-    }
+        .stat {
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--line);
+        }
 
-    @media (max-width: 560px) {
-      .wrap { padding-top: 8vh; }
-      .actions { flex-direction: column; }
-      .btn { justify-content: center; }
-    }
-  </style>
+            .stat .label {
+                display: block;
+                font-size: 0.78rem;
+                color: var(--muted);
+                margin-bottom: 6px;
+            }
+
+            .stat .value {
+                font-family: "JetBrains Mono", ui-monospace, monospace;
+                font-size: 1.35rem;
+                font-weight: 500;
+            }
+
+            .stat.ok .value {
+                color: var(--ok);
+            }
+
+            .stat.bad .value {
+                color: var(--bad);
+            }
+
+            .stat.warn .value {
+                color: var(--warn);
+            }
+
+        .meta {
+            margin-top: 18px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 18px;
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+            .meta a {
+                color: var(--accent);
+                text-decoration: none;
+            }
+
+                .meta a:hover {
+                    text-decoration: underline;
+                }
+
+        .hint {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: var(--muted);
+            min-height: 1.2em;
+        }
+
+        @media (max-width: 560px) {
+            .wrap {
+                padding-top: 8vh;
+            }
+
+            .actions {
+                flex-direction: column;
+            }
+
+            .btn {
+                justify-content: center;
+            }
+        }
+    </style>
 </head>
 <body>
-  <main class="wrap">
-    <h1 class="brand">Task<span>Runner</span></h1>
-    <p class="lead">定时任务调度中心。监控、触发与文档从这里进入；任务由独立 Worker 服务执行。</p>
+    <main class="wrap">
+        <h1 class="brand">Task<span>Runner</span></h1>
+        <p class="lead">定时任务调度中心。监控、触发与文档从这里进入；任务由独立 Worker 服务执行。</p>
 
-    <div class="actions">
-      <a class="btn btn-primary" id="link-dashboard" href="/taskrunner">打开 Dashboard</a>
-      <a class="btn btn-ghost" id="link-scalar" href="/scalar" hidden>API 文档 (Scalar)</a>
-      <a class="btn btn-ghost" href="/api/tasks">任务列表 API</a>
-    </div>
+        <div class="actions">
+            <a class="btn btn-ghost" id="link-dashboard" href="/taskrunner">打开 Dashboard</a>
+            <a class="btn btn-ghost" id="link-scalar" href="/scalar" hidden>API 文档 (Scalar)</a>
+            <a class="btn btn-ghost" href="/api/tasks">任务列表 API</a>
+        </div>
 
-    <section class="panel" aria-label="运行概览">
-      <h2>运行概览</h2>
-      <div class="stats" id="stats">
-        <div class="stat ok"><span class="label">成功</span><span class="value" data-k="succeeded">—</span></div>
-        <div class="stat bad"><span class="label">失败</span><span class="value" data-k="failed">—</span></div>
-        <div class="stat warn"><span class="label">排队</span><span class="value" data-k="enqueued">—</span></div>
-        <div class="stat"><span class="label">处理中</span><span class="value" data-k="processing">—</span></div>
-        <div class="stat"><span class="label">定时任务</span><span class="value" data-k="recurring">—</span></div>
-        <div class="stat"><span class="label">Worker</span><span class="value" data-k="servers">—</span></div>
-      </div>
-      <p class="hint" id="hint">正在加载统计…</p>
-      <div class="meta">
-        <span>角色：Client</span>
-        <a href="/info">/info</a>
-        <a href="/health">/health</a>
-        <a href="/api/background-jobs">后台任务</a>
-      </div>
-    </section>
-  </main>
+        <section class="panel" aria-label="运行概览">
+            <h2>运行概览</h2>
+            <div class="stats" id="stats">
+                <div class="stat ok"><span class="label">成功</span><span class="value" data-k="succeeded">—</span></div>
+                <div class="stat bad"><span class="label">失败</span><span class="value" data-k="failed">—</span></div>
+                <div class="stat warn"><span class="label">排队</span><span class="value" data-k="enqueued">—</span></div>
+                <div class="stat"><span class="label">处理中</span><span class="value" data-k="processing">—</span></div>
+                <div class="stat"><span class="label">定时任务</span><span class="value" data-k="recurring">—</span></div>
+                <div class="stat"><span class="label">Worker</span><span class="value" data-k="servers">—</span></div>
+            </div>
+            <p class="hint" id="hint">正在加载统计…</p>
+            <div class="meta">
+                <span>角色：<span id="role">—</span></span>
+                <a href="/info">/info</a>
+                <a href="/health">/health</a>
+                <a href="/bilibili-login.html">B 站扫码</a>
+            </div>
+        </section>
+    </main>
 
-  <script>
-    (async function () {
-      const hint = document.getElementById("hint");
-      const scalar = document.getElementById("link-scalar");
-      const dashboard = document.getElementById("link-dashboard");
+    <script>
+        (async function () {
+            const hint = document.getElementById("hint");
+            const scalar = document.getElementById("link-scalar");
+            const dashboard = document.getElementById("link-dashboard");
 
-      try {
-        const info = await fetch("/info").then((r) => r.json());
-        if (info.dashboard) dashboard.href = info.dashboard;
-        if (info.scalar) {
-          scalar.hidden = false;
-          scalar.href = info.scalar;
-        }
-      } catch (_) {
-        /* keep defaults */
-      }
+            try {
+                const info = await fetch("/info").then((r) => r.json());
+                if (info.dashboard) dashboard.href = info.dashboard;
+                const role = document.getElementById("role");
+                if (role && info.role) role.textContent = info.role;
+                if (info.scalar) {
+                    scalar.hidden = false;
+                    scalar.href = info.scalar;
+                }
+            } catch (_) {
+                /* keep defaults */
+            }
 
-      try {
-        const stats = await fetch("/api/tasks/statistics").then((r) => {
-          if (!r.ok) throw new Error(r.statusText);
-          return r.json();
-        });
-        const map = {
-          succeeded: stats.succeeded,
-          failed: stats.failed,
-          enqueued: stats.enqueued,
-          processing: stats.processing,
-          recurring: stats.recurring,
-          servers: stats.servers
-        };
-        for (const [key, value] of Object.entries(map)) {
-          const el = document.querySelector('[data-k="' + key + '"]');
-          if (el) el.textContent = value ?? "—";
-        }
-        hint.textContent = "数据来自 Hangfire 监控接口。";
-      } catch (err) {
-        hint.textContent = "统计暂不可用：" + (err.message || "未知错误");
-      }
-    })();
-  </script>
+            try {
+                const stats = await fetch("/api/tasks/statistics").then((r) => {
+                    if (!r.ok) throw new Error(r.statusText);
+                    return r.json();
+                });
+                const map = {
+                    succeeded: stats.succeeded,
+                    failed: stats.failed,
+                    enqueued: stats.enqueued,
+                    processing: stats.processing,
+                    recurring: stats.recurring,
+                    servers: stats.servers
+                };
+                for (const [key, value] of Object.entries(map)) {
+                    const el = document.querySelector('[data-k="' + key + '"]');
+                    if (el) el.textContent = value ?? "—";
+                }
+                hint.textContent = "数据来自 Hangfire 监控接口。";
+            } catch (err) {
+                hint.textContent = "统计暂不可用：" + (err.message || "未知错误");
+            }
+        })();
+    </script>
 </body>
 </html>

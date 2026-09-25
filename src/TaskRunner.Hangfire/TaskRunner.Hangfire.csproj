@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -17,9 +17,8 @@
 
   <ItemGroup>
     <PackageReference Include="Hangfire.AspNetCore" Version="1.8.25" />
-    <PackageReference Include="Hangfire.Community.Dashboard.Forms" Version="3.0.1.4" />
     <PackageReference Include="Hangfire.SqlServer" Version="1.8.25" />
-    <PackageReference Include="Hangfire.Storage.SQLite" Version="0.4.3" />
+    <PackageReference Include="IdentityStream.Hangfire.Console" Version="2.0.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
   </ItemGroup>
 

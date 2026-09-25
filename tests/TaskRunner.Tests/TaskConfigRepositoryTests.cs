@@ -28,26 +28,42 @@ public sealed class TaskConfigRepositoryTests : IDisposable
         var repository = scope.ServiceProvider.GetRequiredService<ITaskConfigRepository>();
         await repository.InitializeAsync(CancellationToken.None);
 
-        var discovered = new RecurringJobDescriptor(
-            "sync-data",
-            "SyncDataJob",
-            "*/5 * * * * *",
-            "TaskRunner.Core.Jobs.Implementations.SyncDataJob, TaskRunner.Core",
-            typeof(string),
-            "每5秒同步一次数据",
-            true);
+        var discovered = new RecurringJobDescriptor("demo-job", "DemoJob", "*/5 * * * * *", "Demo.Job, Demo", typeof(string), "演示任务", true);
 
         await repository.SyncDiscoveredAsync([discovered], CancellationToken.None);
-        var updated = await repository.UpdateCronAsync("sync-data", "0 * * * * *", CancellationToken.None);
-        await repository.SetEnabledAsync("sync-data", false, CancellationToken.None);
+        var updated = await repository.UpdateCronAsync("demo-job", "0 * * * * *", CancellationToken.None);
+        await repository.SetEnabledAsync("demo-job", false, CancellationToken.None);
         await repository.SyncDiscoveredAsync([discovered], CancellationToken.None);
 
-        var stored = await repository.FindAsync("sync-data", CancellationToken.None);
+        var stored = await repository.FindAsync("demo-job", CancellationToken.None);
         Assert.NotNull(updated);
         Assert.NotNull(stored);
         Assert.Equal("0 * * * * *", stored.CronExpr);
         Assert.False(stored.IsEnabled);
-        Assert.Equal("每5秒同步一次数据", stored.Description);
+        Assert.Equal("演示任务", stored.Description);
+    }
+
+    [Fact]
+    public async Task Sync_EnablesUntouchedJobWhenDefaultBecomesEnabled()
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        var repository = scope.ServiceProvider.GetRequiredService<ITaskConfigRepository>();
+        await repository.InitializeAsync(CancellationToken.None);
+
+        var disabled = new RecurringJobDescriptor("bilibili-daily", "B站每日任务", "0 0 9 * * *", "T, A", typeof(string), "旧描述", false);
+        await repository.SyncDiscoveredAsync([disabled], CancellationToken.None);
+        var before = await repository.FindAsync("bilibili-daily", CancellationToken.None);
+        Assert.NotNull(before);
+        Assert.False(before.IsEnabled);
+        Assert.Equal(before.CreatedAt, before.UpdatedAt);
+
+        var enabled = disabled with { EnabledByDefault = true, Description = "新描述" };
+        await repository.SyncDiscoveredAsync([enabled], CancellationToken.None);
+
+        var after = await repository.FindAsync("bilibili-daily", CancellationToken.None);
+        Assert.NotNull(after);
+        Assert.True(after.IsEnabled);
+        Assert.Equal("新描述", after.Description);
     }
 
     [Fact]
@@ -73,9 +89,6 @@ public sealed class TaskConfigRepositoryTests : IDisposable
     {
         _provider.Dispose();
         SqliteConnection.ClearAllPools();
-        if (File.Exists(_path))
-        {
-            File.Delete(_path);
-        }
+        if (File.Exists(_path)) { File.Delete(_path); }
     }
 }

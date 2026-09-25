@@ -1,7 +1,6 @@
 using Hangfire;
-using Hangfire.Community.Dashboard.Forms;
+using Hangfire.Console;
 using Hangfire.SqlServer;
-using Hangfire.Storage.SQLite;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,12 +14,17 @@ public static class HangfireServiceCollectionExtensions
     public static IServiceCollection AddTaskRunnerHangfire(
         this IServiceCollection services,
         IConfiguration configuration,
-        string contentRoot,
         HangfireHostRole role)
     {
         var options = configuration.GetSection(TaskRunnerOptions.SectionName).Get<TaskRunnerOptions>() ?? new TaskRunnerOptions();
         var storage = configuration.GetSection(TaskRunnerOptions.SectionName)["Storage"] ?? "SqlServer";
-        var useSqlite = storage.Equals("Sqlite", StringComparison.OrdinalIgnoreCase);
+        if (!storage.Equals("SqlServer", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"不支持的 Hangfire:Storage={storage}，当前仅支持 SqlServer。");
+        }
+
+        var connection = configuration.GetConnectionString("Default")
+            ?? throw new InvalidOperationException("缺少连接字符串 ConnectionStrings:Default。");
         var queuePoll = RequireInterval(options.QueuePollIntervalSeconds, nameof(options.QueuePollIntervalSeconds));
         var schedulePoll = RequireInterval(options.SchedulePollingIntervalSeconds, nameof(options.SchedulePollingIntervalSeconds));
         if (options.RetryAttempts < 0)
@@ -33,97 +37,43 @@ public static class HangfireServiceCollectionExtensions
             config
                 .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
                 .UseSimpleAssemblyNameTypeSerializer()
-                .UseRecommendedSerializerSettings();
-            ConfigureStorage(config, configuration, contentRoot, queuePoll, useSqlite);
-
-            if (role == HangfireHostRole.Client && options.EnableDashboardForms)
-            {
-                config.UseManagementPages(typeof(TaskDashboardJobs).Assembly);
-            }
+                .UseRecommendedSerializerSettings()
+                .UseSqlServerStorage(connection, new SqlServerStorageOptions
+                {
+                    CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
+                    SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
+                    QueuePollInterval = queuePoll,
+                    UseRecommendedIsolationLevel = true,
+                    DisableGlobalLocks = false,
+                    PrepareSchemaIfNecessary = true,
+                    JobExpirationCheckInterval = TimeSpan.FromMinutes(5),
+                    SqlClientFactory = SqlClientFactory.Instance
+                })
+                .UseConsole(new ConsoleOptions { FollowJobRetentionPolicy = true });
         });
 
         services.AddSingleton<ITaskScheduler, HangfireTaskScheduler>();
+        services.AddScoped<HangfireJobGateway>();
 
-        if (role == HangfireHostRole.Server)
+        if (role is HangfireHostRole.Server or HangfireHostRole.Combined)
         {
             ReplaceRetryFilter(options.RetryAttempts);
-            if (!useSqlite)
-            {
-                GlobalJobFilters.Filters.Add(new ExclusiveJobFilter());
-            }
+            var succeededExpiration = TimeSpan.FromMinutes(Math.Max(1, options.SucceededJobExpirationMinutes));
+            GlobalJobFilters.Filters.Add(new JobExpirationFilter(succeededExpiration));
+            GlobalJobFilters.Filters.Add(new ExclusiveJobFilter());
 
-            var workerCount = Math.Max(1, options.WorkerCount);
-            if (useSqlite)
-            {
-                workerCount = 1;
-            }
-
+            var suffix = role == HangfireHostRole.Combined ? "combined" : "worker";
             services.AddHangfireServer(server =>
             {
-                server.WorkerCount = workerCount;
+                server.WorkerCount = Math.Max(1, options.WorkerCount);
                 server.SchedulePollingInterval = schedulePoll;
                 server.HeartbeatInterval = TimeSpan.FromSeconds(15);
                 server.Queues = ["default"];
-                server.ServerName = $"{Environment.MachineName}:{Environment.ProcessId}:taskrunner-worker";
+                server.ServerName = $"{Environment.MachineName}:{Environment.ProcessId}:taskrunner-{suffix}";
             });
         }
 
         return services;
-    }
-
-    private static void ConfigureStorage(
-        IGlobalConfiguration config,
-        IConfiguration configuration,
-        string contentRoot,
-        TimeSpan queuePoll,
-        bool useSqlite)
-    {
-        var connection = configuration.GetConnectionString("Hangfire")
-            ?? throw new InvalidOperationException("缺少连接字符串 ConnectionStrings:Hangfire。");
-
-        if (useSqlite)
-        {
-            var path = AppPaths.ResolveSqliteFile(connection, contentRoot);
-            Console.Error.WriteLine($"[TaskRunner] Hangfire 存储=Sqlite，文件={path}。双进程共享此库可能导致 database is locked / 原生崩溃。");
-            config.UseSQLiteStorage(path, new SQLiteStorageOptions
-            {
-                QueuePollInterval = queuePoll,
-                InvisibilityTimeout = TimeSpan.FromMinutes(5),
-                JournalMode = SQLiteStorageOptions.JournalModes.WAL,
-                PoolSize = 1
-            });
-            return;
-        }
-
-        Console.WriteLine($"[TaskRunner] Hangfire 存储=SqlServer，连接={MaskConnection(connection)}");
-        config.UseSqlServerStorage(connection, new SqlServerStorageOptions
-        {
-            CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
-            SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
-            QueuePollInterval = queuePoll,
-            UseRecommendedIsolationLevel = true,
-            DisableGlobalLocks = false,
-            PrepareSchemaIfNecessary = true,
-            SqlClientFactory = SqlClientFactory.Instance
-        });
-    }
-
-    private static string MaskConnection(string connection)
-    {
-        try
-        {
-            var builder = new SqlConnectionStringBuilder(connection);
-            if (!string.IsNullOrEmpty(builder.Password))
-            {
-                builder.Password = "***";
-            }
-
-            return builder.ConnectionString;
-        }
-        catch (ArgumentException)
-        {
-            return "(connection string)";
-        }
     }
 
     private static void ReplaceRetryFilter(int attempts)

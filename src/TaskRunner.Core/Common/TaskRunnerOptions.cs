@@ -16,11 +16,13 @@ public sealed class TaskRunnerOptions
 
     public int RetryAttempts { get; set; } = 3;
 
-    public bool EnableDashboardForms { get; set; } = true;
-
+    /// <summary>配置级只读；修改需改配置并重启。</summary>
     public bool ReadOnlyMode { get; set; }
 
     public string? AdminApiKey { get; set; }
+
+    /// <summary>Hangfire 已成功/已删除作业的保留分钟数（默认 60）。</summary>
+    public int SucceededJobExpirationMinutes { get; set; } = 60;
 
     public string NormalizeDashboardPath()
     {

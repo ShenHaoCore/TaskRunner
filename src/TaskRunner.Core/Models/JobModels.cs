@@ -9,13 +9,6 @@ public sealed record RecurringJobDescriptor(
     string? Description,
     bool EnabledByDefault);
 
-public sealed record BackgroundJobDescriptor(
-    string JobId,
-    string JobName,
-    string JobType,
-    Type ClrType,
-    string? Description);
-
 public sealed record JobStatistics(
     long Succeeded,
     long Failed,

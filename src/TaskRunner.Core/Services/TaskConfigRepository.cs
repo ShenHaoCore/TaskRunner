@@ -20,16 +20,14 @@ public interface ITaskConfigRepository
     Task<TaskConfig?> SetEnabledAsync(string jobId, bool enabled, CancellationToken cancellationToken);
 
     Task<TaskConfig?> UpdateCronAsync(string jobId, string cron, CancellationToken cancellationToken);
-
-    Task<TaskConfig?> UpdateParametersAsync(string jobId, string? parameters, CancellationToken cancellationToken);
 }
 
 public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRepository
 {
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
-        // 迁移按 SQL Server 生成；SQLite（测试/可选开发）用 EnsureCreated，避免跨提供程序快照告警。
-        if (db.Database.IsSqlite())
+        // 迁移按 SQL Server 生成；测试使用 SQLite 提供程序，模型存在跨提供程序差异，走 EnsureCreated。
+        if (string.Equals(db.Database.ProviderName, "Microsoft.EntityFrameworkCore.Sqlite", StringComparison.Ordinal))
         {
             await db.Database.EnsureCreatedAsync(cancellationToken);
             return;
@@ -55,7 +53,6 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
                     CronExpr = job.Cron,
                     IsEnabled = job.EnabledByDefault,
                     JobType = job.JobType,
-                    Parameters = null,
                     Description = job.Description,
                     CreatedAt = now,
                     UpdatedAt = now
@@ -79,6 +76,13 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
             if (!string.Equals(row.Description, job.Description, StringComparison.Ordinal))
             {
                 row.Description = job.Description;
+                changed = true;
+            }
+
+            // 代码默认启用、且库中仍为禁用且从未被运维改过（CreatedAt==UpdatedAt）时，纠正为启用并注册到 Hangfire。
+            if (job.EnabledByDefault && !row.IsEnabled && row.CreatedAt == row.UpdatedAt)
+            {
+                row.IsEnabled = true;
                 changed = true;
             }
 
@@ -138,20 +142,6 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
         }
 
         row.CronExpr = cron.Trim();
-        row.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(cancellationToken);
-        return row;
-    }
-
-    public async Task<TaskConfig?> UpdateParametersAsync(string jobId, string? parameters, CancellationToken cancellationToken)
-    {
-        var row = await FindAsync(jobId, cancellationToken);
-        if (row is null)
-        {
-            return null;
-        }
-
-        row.Parameters = string.IsNullOrWhiteSpace(parameters) ? null : parameters.Trim();
         row.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
         return row;

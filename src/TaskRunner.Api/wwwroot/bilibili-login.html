@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>B 站扫码登录 · TaskRunner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg0: #0f1419;
+      --bg1: #1a2332;
+      --ink: #e8eef6;
+      --muted: #8b9bb4;
+      --line: rgba(232, 238, 246, 0.12);
+      --accent: #3d9cfd;
+      --accent-dim: rgba(61, 156, 253, 0.16);
+      --ok: #3ecf8e;
+      --warn: #f0b429;
+      --bad: #f07178;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: "Noto Sans SC", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1000px 500px at 20% -10%, rgba(61, 156, 253, 0.16), transparent 55%),
+        linear-gradient(160deg, var(--bg0), var(--bg1) 60%, #121820);
+      min-height: 100%;
+    }
+    .wrap {
+      max-width: 420px;
+      margin: 0 auto;
+      padding: 10vh 24px 48px;
+      text-align: center;
+    }
+    .brand {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin: 0 0 8px;
+    }
+    .brand a { color: var(--accent); text-decoration: none; }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .lead {
+      margin: 0 0 28px;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.55;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-weight: 500;
+      font-size: 0.95rem;
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-family: inherit;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+    .btn-primary { background: var(--accent); color: #061018; }
+    .btn-primary:hover:not(:disabled) { background: #62b0ff; }
+    .btn-ghost {
+      background: var(--accent-dim);
+      color: var(--ink);
+      border-color: var(--line);
+      margin-left: 8px;
+    }
+    .auth {
+      display: none;
+      margin: 0 0 20px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(15, 20, 25, 0.55);
+      text-align: left;
+    }
+    .auth.visible { display: block; }
+    .auth label {
+      display: block;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .auth input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: rgba(0, 0, 0, 0.25);
+      color: var(--ink);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+    }
+    .auth .row { display: flex; gap: 8px; }
+    .auth .row .btn { flex: 1; margin: 0; }
+    .qr-box {
+      margin: 28px auto 16px;
+      width: 240px;
+      height: 240px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .qr-box img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .qr-box .placeholder { color: #667; font-size: 0.9rem; padding: 16px; }
+    .status {
+      min-height: 1.5em;
+      font-size: 0.95rem;
+      margin: 0 0 8px;
+    }
+    .status.ok { color: var(--ok); }
+    .status.warn { color: var(--warn); }
+    .status.bad { color: var(--bad); }
+    .status.muted { color: var(--muted); }
+    .account {
+      margin-top: 20px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(15, 20, 25, 0.55);
+      text-align: left;
+      font-size: 0.88rem;
+      color: var(--muted);
+      display: none;
+    }
+    .account.visible { display: block; }
+    .account strong { color: var(--ink); font-weight: 500; }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <p class="brand"><a href="/">← TaskRunner</a></p>
+    <h1>B 站扫码登录</h1>
+    <p class="lead">点击下方按钮生成二维码，用手机哔哩哔哩扫码并确认。成功后 Cookie 自动保存，Worker 可直接跑每日任务。</p>
+
+    <div class="auth" id="auth-panel">
+      <label for="admin-key">生产环境需要管理员 ApiKey（写入 Admin Cookie 后可扫码）</label>
+      <input id="admin-key" type="password" autocomplete="current-password" placeholder="Hangfire:AdminApiKey" />
+      <div class="row">
+        <button type="button" class="btn btn-primary" id="btn-auth">登录并继续</button>
+      </div>
+    </div>
+
+    <div>
+      <button type="button" class="btn btn-primary" id="btn-start">生成二维码</button>
+      <button type="button" class="btn btn-ghost" id="btn-refresh" hidden>刷新二维码</button>
+    </div>
+
+    <div class="qr-box" id="qr-box" aria-live="polite">
+      <span class="placeholder">二维码将显示在这里</span>
+    </div>
+    <p class="status muted" id="status">尚未开始</p>
+    <div class="account" id="account"></div>
+  </main>
+
+  <script>
+    (function () {
+      const btnStart = document.getElementById("btn-start");
+      const btnRefresh = document.getElementById("btn-refresh");
+      const btnAuth = document.getElementById("btn-auth");
+      const authPanel = document.getElementById("auth-panel");
+      const adminKeyInput = document.getElementById("admin-key");
+      const qrBox = document.getElementById("qr-box");
+      const statusEl = document.getElementById("status");
+      const accountEl = document.getElementById("account");
+      let timer = null;
+      let qrcodeKey = null;
+      let pendingStartAfterAuth = false;
+
+      function setStatus(text, kind) {
+        statusEl.textContent = text;
+        statusEl.className = "status " + (kind || "muted");
+      }
+
+      function stopPoll() {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+      }
+
+      function showAuth(message) {
+        authPanel.classList.add("visible");
+        if (message) setStatus(message, "warn");
+        adminKeyInput.focus();
+      }
+
+      function hideAuth() {
+        authPanel.classList.remove("visible");
+      }
+
+      async function api(url, options) {
+        const response = await fetch(url, Object.assign({ credentials: "include" }, options || {}));
+        if (response.status === 401) {
+          const err = new Error("需要管理员登录");
+          err.code = 401;
+          throw err;
+        }
+        if (!response.ok) {
+          const body = await response.text();
+          throw new Error(body || response.statusText);
+        }
+        const type = response.headers.get("content-type") || "";
+        if (type.includes("application/json")) {
+          return response.json();
+        }
+        return null;
+      }
+
+      async function ensureAdminOrThrow(err) {
+        if (err && err.code === 401) {
+          pendingStartAfterAuth = true;
+          btnStart.disabled = false;
+          showAuth("未授权：请先填写 AdminApiKey 登录");
+          return true;
+        }
+        return false;
+      }
+
+      async function loginAdmin() {
+        const apiKey = (adminKeyInput.value || "").trim();
+        if (!apiKey) {
+          setStatus("请输入 AdminApiKey", "bad");
+          return;
+        }
+        btnAuth.disabled = true;
+        try {
+          await api("/api/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ apiKey: apiKey })
+          });
+          hideAuth();
+          setStatus("管理员已登录", "ok");
+          if (pendingStartAfterAuth) {
+            pendingStartAfterAuth = false;
+            await startLogin();
+          }
+        } catch (err) {
+          setStatus("管理员登录失败：" + (err.message || "未知错误"), "bad");
+        } finally {
+          btnAuth.disabled = false;
+        }
+      }
+
+      async function loadAccount() {
+        try {
+          const data = await api("/api/bilibili/account");
+          accountEl.classList.add("visible");
+          if (data.valid) {
+            accountEl.innerHTML =
+              "<strong>已登录</strong>　" +
+              (data.uname || "") +
+              "　mid=" + (data.mid ?? "—") +
+              "　硬币=" + (data.money ?? "—");
+          } else if (data.configured) {
+            accountEl.innerHTML = "<strong>Cookie 无效或已过期</strong>　" + (data.message || "");
+          } else {
+            accountEl.innerHTML = "尚未配置 Cookie。";
+          }
+        } catch (err) {
+          accountEl.classList.add("visible");
+          accountEl.textContent = "无法读取账号状态：" + (err.message || "未知错误");
+        }
+      }
+
+      async function pollOnce() {
+        if (!qrcodeKey) return;
+        try {
+          const data = await api("/api/bilibili/login/qrcode/" + encodeURIComponent(qrcodeKey));
+          switch (data.status) {
+            case "Waiting":
+              setStatus("等待扫码…", "muted");
+              break;
+            case "Scanned":
+              setStatus("已扫码，请在手机上确认登录", "warn");
+              break;
+            case "Success":
+              stopPoll();
+              setStatus(data.saved ? "登录成功，Cookie 已保存" : "登录成功", "ok");
+              btnStart.disabled = false;
+              await loadAccount();
+              break;
+            case "Expired":
+              stopPoll();
+              setStatus("二维码已失效，请点击刷新", "bad");
+              btnStart.disabled = false;
+              btnRefresh.hidden = false;
+              break;
+            default:
+              stopPoll();
+              setStatus(data.message || ("异常：" + data.status), "bad");
+              btnStart.disabled = false;
+              btnRefresh.hidden = false;
+              break;
+          }
+        } catch (err) {
+          stopPoll();
+          if (await ensureAdminOrThrow(err)) return;
+          setStatus("轮询失败：" + (err.message || "未知错误"), "bad");
+          btnStart.disabled = false;
+        }
+      }
+
+      async function startLogin() {
+        stopPoll();
+        btnStart.disabled = true;
+        btnRefresh.hidden = true;
+        accountEl.classList.remove("visible");
+        setStatus("正在生成二维码…", "muted");
+        qrBox.innerHTML = '<span class="placeholder">加载中…</span>';
+
+        try {
+          const data = await api("/api/bilibili/login/qrcode", { method: "POST" });
+          hideAuth();
+          qrcodeKey = data.qrcodeKey;
+          qrBox.innerHTML = "";
+          const img = document.createElement("img");
+          img.src = data.qrImageDataUrl;
+          img.alt = "B 站登录二维码";
+          qrBox.appendChild(img);
+          setStatus("请使用哔哩哔哩 App 扫码", "muted");
+          btnRefresh.hidden = false;
+          timer = setInterval(pollOnce, 2000);
+          await pollOnce();
+        } catch (err) {
+          qrBox.innerHTML = '<span class="placeholder">生成失败</span>';
+          btnStart.disabled = false;
+          if (await ensureAdminOrThrow(err)) return;
+          setStatus("生成失败：" + (err.message || "未知错误"), "bad");
+        }
+      }
+
+      btnStart.addEventListener("click", startLogin);
+      btnRefresh.addEventListener("click", startLogin);
+      btnAuth.addEventListener("click", loginAdmin);
+      adminKeyInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") loginAdmin();
+      });
+      loadAccount();
+    })();
+  </script>
+</body>
+</html>

@@ -1,18 +1,16 @@
-using Hangfire;
 using Microsoft.Extensions.Options;
-using Scalar.AspNetCore;
 using Serilog;
-using Serilog.Events;
 using TaskRunner.Api.Auth;
-using TaskRunner.Api.Dashboard;
 using TaskRunner.Api.Filters;
 using TaskRunner.Api.Hosting;
 using TaskRunner.Api.Services;
+using TaskRunner.Bilibili;
 using TaskRunner.Core;
 using TaskRunner.Core.Common;
 using TaskRunner.Hangfire;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddSharedConfiguration(builder.Environment.EnvironmentName);
 
 builder.Services.AddSerilog((services, configuration) => configuration
     .ReadFrom.Configuration(builder.Configuration)
@@ -32,8 +30,14 @@ if (!builder.Environment.IsDevelopment())
     }
 }
 
-builder.Services.AddTaskRunnerCore(builder.Configuration, builder.Environment.ContentRootPath);
-builder.Services.AddTaskRunnerHangfire(builder.Configuration, builder.Environment.ContentRootPath, HangfireHostRole.Client);
+// 开发：单进程 Combined（不必再开 Worker）；生产 Api 仅 Client，执行靠 Worker 服务。
+var hangfireRole = builder.Environment.IsDevelopment() ? HangfireHostRole.Combined : HangfireHostRole.Client;
+
+builder.Services.AddTaskRunnerCore(
+    builder.Configuration,
+    typeof(TaskRunner.Bilibili.Jobs.BilibiliDailyJob).Assembly);
+builder.Services.AddBilibili(builder.Configuration);
+builder.Services.AddTaskRunnerHangfire(builder.Configuration, hangfireRole);
 builder.Services.AddTaskRunnerAdminAuth();
 builder.Services.AddHostedService<RecurringJobBootstrapper>();
 builder.Services.AddSingleton<HangfireMonitoringReader>();
@@ -44,74 +48,12 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-    app.MapScalarApiReference(options => options.WithTitle("TaskRunner API"));
-}
+app.UseTaskRunnerPipeline(hangfireRole);
 
 var hangfireOptions = app.Services.GetRequiredService<IOptions<TaskRunnerOptions>>().Value;
-var dashboardPath = hangfireOptions.NormalizeDashboardPath();
-
-app.UseSerilogRequestLogging(options =>
-{
-    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} → {StatusCode} in {Elapsed:0.0} ms";
-    options.GetLevel = (context, _, exception) =>
-    {
-        if (exception is not null || context.Response.StatusCode >= 500)
-        {
-            return LogEventLevel.Error;
-        }
-
-        var path = context.Request.Path.Value ?? string.Empty;
-        if (path.StartsWith(dashboardPath, StringComparison.OrdinalIgnoreCase)
-            || path.StartsWith("/openapi", StringComparison.OrdinalIgnoreCase)
-            || path.StartsWith("/scalar", StringComparison.OrdinalIgnoreCase))
-        {
-            return LogEventLevel.Debug;
-        }
-
-        return LogEventLevel.Information;
-    };
-});
-app.UseExceptionHandler();
-app.UseDefaultFiles();
-app.UseStaticFiles();
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapHangfireDashboard(dashboardPath, new DashboardOptions
-{
-    DashboardTitle = "任务调度中心",
-    DisplayStorageConnectionString = false,
-    Authorization = [new AdminDashboardAuthorizationFilter()],
-    IsReadOnlyFunc = _ =>
-    {
-        using var scope = app.Services.CreateScope();
-        return scope.ServiceProvider.GetRequiredService<TaskRunner.Core.Services.IRuntimeSettingsStore>()
-            .GetReadOnlyModeAsync(CancellationToken.None)
-            .GetAwaiter()
-            .GetResult();
-    },
-    StatsPollingInterval = 2000
-});
-
-app.MapControllers();
-app.MapGet("/info", (IHostEnvironment environment) => Results.Ok(new
-{
-    name = "TaskRunner",
-    role = "Client",
-    dashboard = dashboardPath,
-    scalar = environment.IsDevelopment() ? "/scalar" : null,
-    tasks = "/api/tasks",
-    backgroundJobs = "/api/background-jobs",
-    authLogin = "/api/auth/login"
-})).AllowAnonymous();
-
-app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
-
 app.Logger.LogInformation(
-    "TaskRunner Api 已启动，角色=Client，存储={Storage}，Dashboard={Dashboard}。",
+    "TaskRunner Api 已启动，角色={Role}，存储={Storage}，Dashboard={Dashboard}。",
+    hangfireRole,
     hangfireOptions.Storage,
-    dashboardPath);
+    hangfireOptions.NormalizeDashboardPath());
 app.Run();

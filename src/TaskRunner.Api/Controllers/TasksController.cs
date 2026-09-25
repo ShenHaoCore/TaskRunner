@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TaskRunner.Api.Auth;
+using TaskRunner.Api.Contracts;
 using TaskRunner.Api.Services;
 using TaskRunner.Core.Common;
 using TaskRunner.Core.Models;
@@ -14,8 +15,7 @@ namespace TaskRunner.Api.Controllers;
 public sealed class TasksController(
     ITaskConfigRepository repository,
     ITaskScheduler scheduler,
-    HangfireMonitoringReader monitoring,
-    IRuntimeSettingsStore settings) : ControllerBase
+    HangfireMonitoringReader monitoring) : ControllerBase
 {
     [HttpGet(Name = "ListTasks")]
     [EndpointSummary("列表")]
@@ -29,20 +29,6 @@ public sealed class TasksController(
     [EndpointSummary("统计")]
     [EndpointDescription("成功 / 失败 / 排队 / 处理中。")]
     public ActionResult<JobStatistics> Statistics() => Ok(monitoring.ReadStatistics());
-
-    [HttpGet("settings/readonly", Name = "GetReadOnlyMode")]
-    [EndpointSummary("只读状态")]
-    public async Task<ActionResult<object>> GetReadOnly(CancellationToken cancellationToken)
-        => Ok(new { readOnly = await settings.GetReadOnlyModeAsync(cancellationToken) });
-
-    [Authorize(Policy = AdminAuthDefaults.Policy)]
-    [HttpPut("settings/readonly", Name = "SetReadOnlyMode")]
-    [EndpointSummary("设置只读")]
-    public async Task<ActionResult<object>> SetReadOnly(SetReadOnlyRequest request, CancellationToken cancellationToken)
-    {
-        await settings.SetReadOnlyModeAsync(request.ReadOnly, cancellationToken);
-        return Ok(new { readOnly = request.ReadOnly });
-    }
 
     [HttpGet("{jobId}", Name = "GetTask")]
     [EndpointSummary("详情")]
@@ -72,7 +58,7 @@ public sealed class TasksController(
     {
         var config = await repository.FindAsync(jobId, cancellationToken);
         if (config is null) { return NotFound(new { message = $"任务不存在：{jobId}" }); }
-        var queueJobId = scheduler.EnqueueRecurring(config.JobId, config.JobType);
+        var queueJobId = scheduler.Enqueue(config.JobId, config.JobType);
         return Ok(new QueueJobResult(config.JobId, queueJobId));
     }
 
@@ -111,19 +97,6 @@ public sealed class TasksController(
         var config = await repository.UpdateCronAsync(jobId, request.Cron, cancellationToken);
         if (config is null) { return NotFound(new { message = $"任务不存在：{jobId}" }); }
         if (config.IsEnabled) { scheduler.AddOrUpdateRecurring(config.JobId, config.JobType, config.CronExpr); }
-        return Ok(monitoring.ReadTasks([config])[0]);
-    }
-
-    [Authorize(Policy = AdminAuthDefaults.Policy)]
-    [HttpPut("{jobId}/parameters", Name = "UpdateTaskParameters")]
-    [EndpointSummary("改参数")]
-    public async Task<ActionResult<TaskConfigView>> UpdateParameters(
-        string jobId,
-        UpdateParametersRequest request,
-        CancellationToken cancellationToken)
-    {
-        var config = await repository.UpdateParametersAsync(jobId, request.Parameters, cancellationToken);
-        if (config is null) { return NotFound(new { message = $"任务不存在：{jobId}" }); }
         return Ok(monitoring.ReadTasks([config])[0]);
     }
 }
