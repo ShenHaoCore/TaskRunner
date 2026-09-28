@@ -1,8 +1,9 @@
-name: .NET CI
+name: .NET CICD
 
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
 
@@ -26,3 +27,41 @@ jobs:
 
       - name: Test
         run: dotnet test -c Release --no-build --verbosity normal
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - { project: TaskRunner.Api, rid: win-x64 }
+          - { project: TaskRunner.Api, rid: linux-x64 }
+          - { project: TaskRunner.Worker, rid: win-x64 }
+          - { project: TaskRunner.Worker, rid: linux-x64 }
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Publish ${{ matrix.project }} (${{ matrix.rid }})
+        run: >-
+          dotnet publish src/${{ matrix.project }}/${{ matrix.project }}.csproj
+          -c Release -r ${{ matrix.rid }} --self-contained true
+          -p:PublishSingleFile=true
+          -o publish/${{ matrix.project }}-${{ matrix.rid }}
+
+      - name: Package
+        working-directory: publish
+        run: zip -r ${{ matrix.project }}-${{ matrix.rid }}.zip ${{ matrix.project }}-${{ matrix.rid }}
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: publish/${{ matrix.project }}-${{ matrix.rid }}.zip
