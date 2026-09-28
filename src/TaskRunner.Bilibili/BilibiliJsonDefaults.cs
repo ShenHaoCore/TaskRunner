@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace TaskRunner.Bilibili;
 
-internal static class BiliJson
+internal static class BilibiliJsonDefaults
 {
     public static readonly JsonSerializerOptions Options = new()
     {

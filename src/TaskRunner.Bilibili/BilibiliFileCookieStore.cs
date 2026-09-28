@@ -17,10 +17,10 @@ public interface IBilibiliCookieStore
     Task ClearAsync(CancellationToken cancellationToken);
 }
 
-public sealed class FileBilibiliCookieStore(
+public sealed class BilibiliFileCookieStore(
     IOptions<BilibiliOptions> options,
     IHostEnvironment environment,
-    ILogger<FileBilibiliCookieStore> logger) : IBilibiliCookieStore
+    ILogger<BilibiliFileCookieStore> logger) : IBilibiliCookieStore
 {
     private readonly object _gate = new();
 
@@ -67,8 +67,8 @@ public sealed class FileBilibiliCookieStore(
     public async Task SaveAsync(string cookie, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cookie);
-        var parsed = new BiliCookie(cookie);
-        if (!parsed.HasLoginTokens)
+        var parsed = new BilibiliCookie(cookie);
+        if (!parsed.IsAuthenticated)
         {
             throw new InvalidOperationException("Cookie 缺少 SESSDATA 或 bili_jct。");
         }

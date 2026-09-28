@@ -1,8 +1,8 @@
 namespace TaskRunner.Bilibili;
 
-public sealed class BiliCookie
+public sealed class BilibiliCookie
 {
-    public BiliCookie(string raw)
+    public BilibiliCookie(string raw)
     {
         Raw = raw?.Trim() ?? string.Empty;
         Values = Parse(Raw);
@@ -14,21 +14,23 @@ public sealed class BiliCookie
 
     public string? SessData => Get("SESSDATA");
 
-    public string? BiliJct => Get("bili_jct");
+    public string? BilibiliJct => Get("bili_jct");
 
     public string? DedeUserId => Get("DedeUserID");
 
     public string? Buvid3 => Get("buvid3");
 
-    public bool HasLoginTokens =>
-        !string.IsNullOrWhiteSpace(SessData) && !string.IsNullOrWhiteSpace(BiliJct);
+    /// <summary>是否具备登录凭证（SESSDATA + bili_jct）。</summary>
+    public bool IsAuthenticated =>
+        !string.IsNullOrWhiteSpace(SessData) && !string.IsNullOrWhiteSpace(BilibiliJct);
 
-    public bool HasBuvid => !string.IsNullOrWhiteSpace(Buvid3);
+    /// <summary>是否已携带设备指纹（buvid3）。</summary>
+    public bool HasDeviceId => !string.IsNullOrWhiteSpace(Buvid3);
 
     public string? Get(string name) =>
         Values.TryGetValue(name, out var value) ? value : null;
 
-    public BiliCookie MergeSetCookies(IEnumerable<string> setCookieHeaders)
+    public BilibiliCookie MergeSetCookies(IEnumerable<string> setCookieHeaders)
     {
         var map = new Dictionary<string, string>(Values, StringComparer.OrdinalIgnoreCase);
         foreach (var pair in ParseSetCookieHeaders(setCookieHeaders))
@@ -36,7 +38,7 @@ public sealed class BiliCookie
             map[pair.Key] = pair.Value;
         }
 
-        return new BiliCookie(string.Join("; ", map.Select(p => $"{p.Key}={p.Value}")));
+        return new BilibiliCookie(string.Join("; ", map.Select(p => $"{p.Key}={p.Value}")));
     }
 
     /// <summary>将 HTTP Set-Cookie 头转为浏览器风格 Cookie 串。</summary>

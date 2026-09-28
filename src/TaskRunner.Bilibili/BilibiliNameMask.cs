@@ -1,6 +1,6 @@
 namespace TaskRunner.Bilibili;
 
-public static class BiliNameMask
+public static class BilibiliNameMask
 {
     public static string Mask(string? name)
     {

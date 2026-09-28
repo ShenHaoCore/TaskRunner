@@ -22,12 +22,12 @@ public sealed class BilibiliOptions
     /// <summary>每日观看视频后点赞（独立于投币的 select_like）。</summary>
     public bool EnableLike { get; set; } = true;
 
-    /// <summary>每月 1 号自动领取大会员 B 币券与漫画福利券。</summary>
+    /// <summary>每日幂等领取大会员 B 币券与漫画福利券（仅年度大会员，已领取的自动跳过）。</summary>
     public bool EnableVipPrivilege { get; set; } = true;
 
-    /// <summary>每月最后一天将 B 币券余额用于充电。</summary>
+    /// <summary>有 B 币券余额即自动充电（每日检查，仅年度大会员，充电后余额归零）。</summary>
     public bool EnableCharge { get; set; } = true;
 
-    /// <summary>充电目标 UP 主 mid，0 表示为自己充电。</summary>
+    /// <summary>充电目标 UP 主 mid。必须指定他人：B 站已禁止给自己充电；0 时使用兜底官方账号。</summary>
     public long ChargeUpMid { get; set; }
 }

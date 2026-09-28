@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TaskRunner.Api.Auth;
 using TaskRunner.Bilibili;
+using TaskRunner.Bilibili.Api;
 
 namespace TaskRunner.Api.Controllers;
 
@@ -10,16 +11,16 @@ namespace TaskRunner.Api.Controllers;
 [Authorize(Policy = AdminAuthDefaults.Policy)]
 [Tags("哔哩哔哩")]
 public sealed class BilibiliController(
-    IBiliQrLoginService qrLogin,
+    IBilibiliQrLoginService qrLogin,
     IBilibiliCookieStore cookieStore,
-    BiliApiClient apiClient) : ControllerBase
+    IBilibiliAccountApi accountApi) : ControllerBase
 {
     [HttpGet("account", Name = "GetBilibiliAccount")]
     [EndpointSummary("账号状态")]
     public async Task<ActionResult<object>> Account(CancellationToken cancellationToken)
     {
-        var cookie = new BiliCookie(cookieStore.GetCookie());
-        if (!cookie.HasLoginTokens)
+        var cookie = new BilibiliCookie(cookieStore.GetCookie());
+        if (!cookie.IsAuthenticated)
         {
             return Ok(new
             {
@@ -31,7 +32,7 @@ public sealed class BilibiliController(
 
         try
         {
-            var nav = await apiClient.GetNavAsync(cancellationToken);
+            var nav = await accountApi.GetNavAsync(cancellationToken);
             if (!nav.IsSuccess || nav.Data is not { IsLogin: true })
             {
                 return Ok(new
@@ -48,7 +49,7 @@ public sealed class BilibiliController(
                 configured = true,
                 valid = true,
                 mid = nav.Data.Mid,
-                uname = BiliNameMask.Mask(nav.Data.Uname),
+                uname = BilibiliNameMask.Mask(nav.Data.Uname),
                 money = nav.Data.Money,
                 dedeUserId = cookie.DedeUserId
             });

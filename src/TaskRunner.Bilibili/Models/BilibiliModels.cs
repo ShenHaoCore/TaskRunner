@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace TaskRunner.Bilibili.Models;
 
-public class BiliApiResponse
+public class BilibiliApiResponse
 {
     [JsonPropertyName("code")]
     public int Code { get; set; }
@@ -18,7 +18,7 @@ public class BiliApiResponse
     public bool IsSuccess => Code is 0;
 }
 
-public class BiliApiResponse<T> : BiliApiResponse
+public class BilibiliApiResponse<T> : BilibiliApiResponse
 {
     [JsonPropertyName("data")]
     public T? Data { get; set; }
@@ -37,6 +37,39 @@ public sealed class NavData
 
     [JsonPropertyName("money")]
     public decimal? Money { get; set; }
+
+    /// <summary>会员状态：1 有效。</summary>
+    [JsonPropertyName("vipStatus")]
+    public int VipStatus { get; set; }
+
+    /// <summary>会员类型：0 无 / 1 月度 / 2 年度。</summary>
+    [JsonPropertyName("vipType")]
+    public int VipType { get; set; }
+
+    [JsonPropertyName("wallet")]
+    public NavWallet? Wallet { get; set; }
+
+    [JsonPropertyName("wbi_img")]
+    public WbiImg? WbiImg { get; set; }
+
+    public bool IsAnnualVip => VipStatus is 1 && VipType is 2;
+}
+
+public sealed class NavWallet
+{
+    /// <summary>B 币券余额（大会员每月赠送）。</summary>
+    [JsonPropertyName("coupon_balance")]
+    public decimal CouponBalance { get; set; }
+}
+
+/// <summary>wbi 签名所需的 img/sub 钥匙（nav.wbi_img 中图片 URL 的文件名）。</summary>
+public sealed class WbiImg
+{
+    [JsonPropertyName("img_url")]
+    public string? ImgUrl { get; set; }
+
+    [JsonPropertyName("sub_url")]
+    public string? SubUrl { get; set; }
 }
 
 public sealed class DailyTaskInfo
@@ -78,6 +111,13 @@ public sealed class PopularVideo
     public int? Duration { get; set; }
 }
 
+/// <summary>稿件详情（/x/web-interface/view），用于补 cid。</summary>
+public sealed class VideoViewData
+{
+    [JsonPropertyName("cid")]
+    public long Cid { get; set; }
+}
+
 public sealed class FollowingInfo
 {
     [JsonPropertyName("mid")]
@@ -104,6 +144,7 @@ public sealed class UpVideoInfo
     [JsonPropertyName("bvid")]
     public string? Bvid { get; set; }
 
+    /// <summary>空间投稿列表不返回 cid，心跳前需通过 view 接口补取。</summary>
     [JsonPropertyName("cid")]
     public long Cid { get; set; }
 
@@ -169,18 +210,12 @@ public sealed class VipPrivilegeList
     public List<VipPrivilegeInfo>? List { get; set; }
 }
 
-public sealed class ChargeWalletData
+/// <summary>充电 V2 结果：status=4 表示支付成功。</summary>
+public sealed class ChargeV2Data
 {
-    [JsonPropertyName("wallet")]
-    public BcoinWallet? Wallet { get; set; }
+    [JsonPropertyName("status")]
+    public int Status { get; set; }
 
-    /// <summary>B 币券余额。</summary>
-    [JsonPropertyName("coupon_balance")]
-    public decimal CouponBalance { get; set; }
-}
-
-public sealed class BcoinWallet
-{
-    [JsonPropertyName("bcoin_balance")]
-    public decimal BcoinBalance { get; set; }
+    [JsonPropertyName("order_no")]
+    public string? OrderNo { get; set; }
 }
