@@ -2,20 +2,30 @@ using TaskRunner.Bilibili.Models;
 
 namespace TaskRunner.Bilibili.Api;
 
-/// <summary>漫画域：每日签到。</summary>
+/// <summary>
+/// 
+/// </summary>
 public interface IBilibiliMangaApi
 {
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
     Task<BilibiliApiResponse> ClockInAsync(CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// 
+/// </summary>
+/// <param name="http"></param>
 internal sealed class BilibiliMangaApi(BilibiliHttpClient http) : IBilibiliMangaApi
 {
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
     public Task<BilibiliApiResponse> ClockInAsync(CancellationToken cancellationToken)
-        // 空 JSON 体比无 Content-Type 更稳妥；platform=android 在端点 query 中。
-        => http.PostJsonAsync(
-            BilibiliEndpoints.MangaClockIn,
-            "{}",
-            cancellationToken,
-            referer: BilibiliEndpoints.MangaHome,
-            origin: BilibiliEndpoints.MangaOrigin);
+        => http.PostJsonAsync(BilibiliEndpoints.MangaClockIn, "{}", cancellationToken, referer: BilibiliEndpoints.MangaHome, origin: BilibiliEndpoints.MangaOrigin);
 }

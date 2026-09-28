@@ -112,9 +112,10 @@ public sealed class BilibiliQrLoginService(
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, BilibiliEndpoints.WwwHome);
+            using var request = http.CreateRequest(HttpMethod.Get, BilibiliEndpoints.WwwHome, BilibiliEndpoints.WwwHome, BilibiliEndpoints.WwwOrigin);
+            // 用新登录的 Cookie 替换默认 Cookie
+            request.Headers.Remove("Cookie");
             request.Headers.TryAddWithoutValidation("Cookie", cookie);
-            request.Headers.TryAddWithoutValidation("Referer", BilibiliEndpoints.WwwHome);
             using var response = await http.SendRawAsync(request, cancellationToken);
             if (!response.Headers.TryGetValues("Set-Cookie", out var setCookies))
             {
