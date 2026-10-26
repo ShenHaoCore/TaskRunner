@@ -37,8 +37,8 @@ sc.exe failure TaskRunner.Worker reset= 86400 actions= restart/5000/restart/5000
 
 Write-Output ""
 Write-Output "Before starting, set the production connection string, for example:"
-Write-Output "  [Environment]::SetEnvironmentVariable('ConnectionStrings__Default', 'Server=...;Database=TaskRunner;...', 'Machine')"
-Write-Output "  [Environment]::SetEnvironmentVariable('Hangfire__Storage', 'SqlServer', 'Machine')"
+Write-Output "  [Environment]::SetEnvironmentVariable('ConnectionStrings__Default', 'Host=...;Port=5432;Database=taskrunner;Username=...;Password=...', 'Machine')"
+Write-Output "  [Environment]::SetEnvironmentVariable('Hangfire__Storage', 'PostgreSql', 'Machine')"
 Write-Output "  [Environment]::SetEnvironmentVariable('Hangfire__ReadOnlyMode', 'false', 'Machine')"
 Write-Output "Or edit: $appsettings"
 Write-Output ""

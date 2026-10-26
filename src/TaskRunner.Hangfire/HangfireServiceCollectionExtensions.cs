@@ -1,7 +1,6 @@
 using Hangfire;
 using Hangfire.Console;
-using Hangfire.SqlServer;
-using Microsoft.Data.SqlClient;
+using Hangfire.PostgreSql;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using TaskRunner.Core.Common;
@@ -17,10 +16,10 @@ public static class HangfireServiceCollectionExtensions
         HangfireHostRole role)
     {
         var options = configuration.GetSection(TaskRunnerOptions.SectionName).Get<TaskRunnerOptions>() ?? new TaskRunnerOptions();
-        var storage = configuration.GetSection(TaskRunnerOptions.SectionName)["Storage"] ?? "SqlServer";
-        if (!storage.Equals("SqlServer", StringComparison.OrdinalIgnoreCase))
+        var storage = configuration.GetSection(TaskRunnerOptions.SectionName)["Storage"] ?? "PostgreSql";
+        if (!storage.Equals("PostgreSql", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException($"不支持的 Hangfire:Storage={storage}，当前仅支持 SqlServer。");
+            throw new InvalidOperationException($"不支持的 Hangfire:Storage={storage}，当前仅支持 PostgreSql。");
         }
 
         var connection = configuration.GetConnectionString("Default")
@@ -38,17 +37,15 @@ public static class HangfireServiceCollectionExtensions
                 .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
                 .UseSimpleAssemblyNameTypeSerializer()
                 .UseRecommendedSerializerSettings()
-                .UseSqlServerStorage(connection, new SqlServerStorageOptions
-                {
-                    CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
-                    SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
-                    QueuePollInterval = queuePoll,
-                    UseRecommendedIsolationLevel = true,
-                    DisableGlobalLocks = false,
-                    PrepareSchemaIfNecessary = true,
-                    JobExpirationCheckInterval = TimeSpan.FromMinutes(5),
-                    SqlClientFactory = SqlClientFactory.Instance
-                })
+                .UsePostgreSqlStorage(
+                    bootstrapper => bootstrapper.UseNpgsqlConnection(connection),
+                    new PostgreSqlStorageOptions
+                    {
+                        SchemaName = "hangfire",
+                        QueuePollInterval = queuePoll,
+                        PrepareSchemaIfNecessary = true,
+                        JobExpirationCheckInterval = TimeSpan.FromMinutes(5)
+                    })
                 .UseConsole(new ConsoleOptions { FollowJobRetentionPolicy = true });
         });
 
