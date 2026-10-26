@@ -1,5 +1,8 @@
 # TaskRunner
 
+[![.NET CICD](https://github.com/ShenHaoCore/TaskRunner/actions/workflows/dotnet.yml/badge.svg)](https://github.com/ShenHaoCore/TaskRunner/actions/workflows/dotnet.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 基于 Hangfire 的 .NET 9 任务调度。开发时 **Api 单进程**（入队 + 执行）；生产 Api 只入队/Dashboard，Worker 作为 Windows 服务执行。共享调度在 `TaskRunner.Hangfire`，Core 不引用 Hangfire。
 
 ## 运行（开发，PostgreSQL 容器）
