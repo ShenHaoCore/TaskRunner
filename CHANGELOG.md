@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+### 新增
+
+- 安全加固：管理员登录接口按 IP 限流（5 次/分钟，超出 429；Development 不限），密钥比较改为恒定时间（防时序侧信道）；管理员 Cookie 新增 `Hangfire:CookieSecure`（TLS 反代部署置 true）
+- 部署：Worker systemd 单元排序在 Api 之后，规避双进程首启同时跑迁移的竞态
+- 测试：文档守卫（/scalar、/openapi）、/info 字段（environment/heartbeat）、登录限流、心跳目录开关的契约测试钉板
+
 ### 变更
 
 - 依赖机器人（Dependabot）目标分支由 main 改为 develop，并忽略 `Microsoft.*` / `Npgsql*` 的主版本跳变（9→10 需整体 TFM 迁移决策）——此前两者分叉导致 release 合并冲突

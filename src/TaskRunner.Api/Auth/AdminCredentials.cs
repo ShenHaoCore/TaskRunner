@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Authentication;
 using TaskRunner.Core.Common;
@@ -31,13 +32,13 @@ public static class AdminCredentials
         }
 
         if (request.Headers.TryGetValue(AdminAuthDefaults.HeaderName, out var header)
-            && string.Equals(header.ToString(), adminApiKey, StringComparison.Ordinal))
+            && MatchesKey(header.ToString(), adminApiKey))
         {
             return true;
         }
 
         if (request.Cookies.TryGetValue(AdminAuthDefaults.CookieName, out var cookie)
-            && string.Equals(cookie, adminApiKey, StringComparison.Ordinal))
+            && MatchesKey(cookie, adminApiKey))
         {
             return true;
         }
@@ -58,12 +59,20 @@ public static class AdminCredentials
         {
             var raw = Encoding.UTF8.GetString(Convert.FromBase64String(authorization["Basic ".Length..].Trim()));
             var parts = raw.Split(':', 2);
-            return parts.Length == 2 && string.Equals(parts[1], adminApiKey, StringComparison.Ordinal);
+            return parts.Length == 2 && MatchesKey(parts[1], adminApiKey);
         }
         catch (FormatException)
         {
             return false;
         }
+    }
+
+    /// <summary>恒定时间比较，防时序侧信道；长度不同立即 false（泄露长度可接受）。</summary>
+    public static bool MatchesKey(string candidate, string adminApiKey)
+    {
+        var left = Encoding.UTF8.GetBytes(candidate);
+        var right = Encoding.UTF8.GetBytes(adminApiKey);
+        return CryptographicOperations.FixedTimeEquals(left, right);
     }
 
     public static AuthenticationTicket CreateTicket(string identity)
