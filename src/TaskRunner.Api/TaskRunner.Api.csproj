@@ -13,11 +13,13 @@
   <ItemGroup>
     <None Include="..\appsettings.shared.json" Link="appsettings.shared.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\appsettings.Development.shared.json" Link="appsettings.Development.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\appsettings.Production.shared.json" Link="appsettings.Production.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.20" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.20">
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.22" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="9.0.22" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.22">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>

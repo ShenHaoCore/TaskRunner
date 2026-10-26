@@ -7,6 +7,8 @@ var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings {
 builder.Configuration.AddSharedConfiguration(builder.Environment.EnvironmentName);
 
 builder.Services.AddWindowsService(options => { options.ServiceName = "TaskRunner.Worker"; });
+// Linux systemd 部署（Type=notify）；非对应环境两者均为 no-op。
+builder.Services.AddSystemd();
 builder.Services.AddSerilog((services, configuration) => configuration.ReadFrom.Configuration(builder.Configuration).ReadFrom.Services(services).Enrich.FromLogContext().Enrich.WithProperty("Application", "TaskRunner.Worker"));
 
 var logRoot = AppPaths.FindSolutionRoot(builder.Environment.ContentRootPath) ?? builder.Environment.ContentRootPath;

@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using TaskRunner.Core.Common;
 using TaskRunner.Core.Jobs;
 using TaskRunner.Core.Jobs.Progress;
+using TaskRunner.Core.Models;
 using TaskRunner.Core.Persistence;
 using TaskRunner.Core.Services;
 
@@ -26,7 +27,16 @@ public static class CoreServiceCollectionExtensions
         services.AddDbContext<TaskRunnerDbContext>(options =>
             options.UseNpgsql(connection, npg => npg.EnableRetryOnFailure(3)));
 
-        var catalog = JobCatalog.CreateDefault(extraJobAssemblies);
+        IJobCatalog catalog = JobCatalog.CreateDefault(extraJobAssemblies);
+        var heartbeatRaw = configuration[$"{TaskRunnerOptions.SectionName}:HeartbeatEnabled"];
+        if (bool.TryParse(heartbeatRaw, out var heartbeatEnabled) && !heartbeatEnabled)
+        {
+            IReadOnlyList<RecurringJobDescriptor> withoutHeartbeat = catalog.RecurringJobs
+                .Where(job => !string.Equals(job.JobId, HeartbeatJob.JobIdValue, StringComparison.Ordinal))
+                .ToList();
+            catalog = new FilteredCatalog(withoutHeartbeat);
+        }
+
         services.AddSingleton<IJobCatalog>(catalog);
         services.AddScoped<ITaskConfigRepository, TaskConfigRepository>();
         services.AddSingleton(TimeProvider.System);
@@ -40,5 +50,10 @@ public static class CoreServiceCollectionExtensions
         }
 
         return services;
+    }
+
+    private sealed class FilteredCatalog(IReadOnlyList<RecurringJobDescriptor> jobs) : IJobCatalog
+    {
+        public IReadOnlyList<RecurringJobDescriptor> RecurringJobs { get; } = jobs;
     }
 }
