@@ -13,3 +13,7 @@ artifacts/
 .screenshots/
 
 .workbuddy/
+
+# dotnet 测试结果
+TestResults/
+*.trx
