@@ -12,6 +12,7 @@
 
 ### 变更
 
+- CD：打 tag 发布时自动把 CHANGELOG 对应版本的「升级到本版本要做什么」写入 Release 说明顶部（原手工步骤移除）
 - 依赖机器人（Dependabot）目标分支由 main 改为 develop，并忽略 `Microsoft.*` / `Npgsql*` 的主版本跳变（9→10 需整体 TFM 迁移决策）——此前两者分叉导致 release 合并冲突
 
 ## 3.2.0 - 2026-10-27

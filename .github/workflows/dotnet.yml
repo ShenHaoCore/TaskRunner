@@ -67,3 +67,20 @@ jobs:
         run: |
           gh release create "${{ github.ref_name }}" --generate-notes || true
           gh release upload "${{ github.ref_name }}" "publish/${{ matrix.project }}-${{ matrix.rid }}.zip" --clobber
+
+      # 从 CHANGELOG 提取对应版本的「升级到本版本要做什么」，置于 Release 说明顶部
+      # （其后保留 --generate-notes 的自动内容）。仅由 Api/linux-x64 矩阵位执行一次。
+      - name: Attach upgrade notes
+        if: matrix.project == 'TaskRunner.Api' && matrix.rid == 'linux-x64'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v ver="$version" '
+            $0 ~ ("^## " ver "( |$)") {p=1; next}
+            /^## / && p {exit}
+            p {print}
+          ' CHANGELOG.md > upgrade-notes.md
+          gh release view "$GITHUB_REF_NAME" --json body -q .body > auto-notes.md 2>/dev/null || true
+          { cat upgrade-notes.md; echo; echo "---"; echo; cat auto-notes.md; } > release-body.md
+          gh release edit "$GITHUB_REF_NAME" --notes-file release-body.md
