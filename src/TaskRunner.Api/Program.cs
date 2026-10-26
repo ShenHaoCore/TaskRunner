@@ -53,3 +53,5 @@ app.Logger.LogInformation(
     hangfireOptions.Storage,
     hangfireOptions.NormalizeDashboardPath());
 app.Run();
+
+public partial class Program { }
