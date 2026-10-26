@@ -4,7 +4,6 @@ using TaskRunner.Api.Auth;
 using TaskRunner.Api.Filters;
 using TaskRunner.Api.Hosting;
 using TaskRunner.Api.Services;
-using TaskRunner.Bilibili;
 using TaskRunner.Core;
 using TaskRunner.Core.Common;
 using TaskRunner.Hangfire;
@@ -33,10 +32,7 @@ if (!builder.Environment.IsDevelopment())
 // 开发：单进程 Combined（不必再开 Worker）；生产 Api 仅 Client，执行靠 Worker 服务。
 var hangfireRole = builder.Environment.IsDevelopment() ? HangfireHostRole.Combined : HangfireHostRole.Client;
 
-builder.Services.AddTaskRunnerCore(
-    builder.Configuration,
-    typeof(TaskRunner.Bilibili.Jobs.BilibiliDailyJob).Assembly);
-builder.Services.AddBilibili(builder.Configuration);
+builder.Services.AddTaskRunnerCore(builder.Configuration);
 builder.Services.AddTaskRunnerHangfire(builder.Configuration, hangfireRole);
 builder.Services.AddTaskRunnerAdminAuth();
 builder.Services.AddHostedService<RecurringJobBootstrapper>();

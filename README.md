@@ -15,7 +15,6 @@ dotnet run --project src/TaskRunner.Api
 - 首页：http://localhost:5088
 - Dashboard：http://localhost:5088/taskrunner
 - Scalar：http://localhost:5088/scalar
-- B 站扫码：http://localhost:5088/bilibili-login.html
 - 任务 API：http://localhost:5088/api/tasks
 
 日志：`logs/taskrunner-*.log`（Api/Worker 共用文件，按日志中的 `Application` 列区分）。
@@ -44,12 +43,6 @@ public sealed class MyJob : IRecurringJob
 
 Cron 支持 5/6 位。已存在任务的 Cron / 启用状态以 `TaskConfigs` 为准。
 
-## B 站每日任务
-
-实现在 `TaskRunner.Bilibili`，默认每天 09:00。扫码：打开 bilibili-login.html → 生成二维码 → 手机确认。开发写入仓库 `data/bilibili-cookie.txt`；发布无 `.sln` 时默认 `%LocalAppData%\TaskRunner\bilibili-cookie.txt`。也可设 `Bilibili:CookieFile` / `Bilibili:Cookie`。
-
-Hangfire.Console（作业详情页底部）：Dashboard → Succeeded/Processing → 点进该次 `bilibili-daily` 作业详情。
-
 ## SQL Server / 生产
 
 ```powershell
@@ -75,5 +68,6 @@ src/
   TaskRunner.Worker/     # 生产 Server（Windows 服务）
   TaskRunner.Hangfire/   # Hangfire 装配 + Console
   TaskRunner.Core/       # 任务契约与配置（无 Hangfire）
-  TaskRunner.Bilibili/   # B 站每日任务
 ```
+
+业务任务不进本仓库：实现 `IRecurringJob` 的程序集通过 `AddTaskRunnerCore(..., extraAssemblies)` 以插件方式注入。

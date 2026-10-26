@@ -1,5 +1,4 @@
 using Serilog;
-using TaskRunner.Bilibili;
 using TaskRunner.Core;
 using TaskRunner.Core.Common;
 using TaskRunner.Hangfire;
@@ -13,8 +12,7 @@ builder.Services.AddSerilog((services, configuration) => configuration.ReadFrom.
 var logRoot = AppPaths.FindSolutionRoot(builder.Environment.ContentRootPath) ?? builder.Environment.ContentRootPath;
 Directory.SetCurrentDirectory(logRoot);
 
-builder.Services.AddTaskRunnerCore(builder.Configuration, typeof(TaskRunner.Bilibili.Jobs.BilibiliDailyJob).Assembly);
-builder.Services.AddBilibili(builder.Configuration);
+builder.Services.AddTaskRunnerCore(builder.Configuration);
 builder.Services.AddTaskRunnerHangfire(builder.Configuration, HangfireHostRole.Server);
 
 var host = builder.Build();
