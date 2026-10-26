@@ -62,6 +62,7 @@ public static class AdminAuthServiceCollectionExtensions
             });
         });
 
+        services.AddSingleton<IStartupFilter, AdminKeyGuardStartupFilter>();
         return services;
     }
 }
