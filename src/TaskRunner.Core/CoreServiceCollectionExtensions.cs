@@ -24,7 +24,7 @@ public static class CoreServiceCollectionExtensions
             ?? throw new InvalidOperationException("缺少连接字符串 ConnectionStrings:Default。");
 
         services.AddDbContext<TaskRunnerDbContext>(options =>
-            options.UseSqlServer(connection, sql => sql.EnableRetryOnFailure(3)));
+            options.UseNpgsql(connection, npg => npg.EnableRetryOnFailure(3)));
 
         var catalog = JobCatalog.CreateDefault(extraJobAssemblies);
         services.AddSingleton<IJobCatalog>(catalog);

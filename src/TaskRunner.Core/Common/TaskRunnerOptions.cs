@@ -4,7 +4,7 @@ public sealed class TaskRunnerOptions
 {
     public const string SectionName = "Hangfire";
 
-    public string Storage { get; set; } = "SqlServer";
+    public string Storage { get; set; } = "PostgreSql";
 
     public string DashboardPath { get; set; } = "/taskrunner";
 
