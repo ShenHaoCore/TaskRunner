@@ -2,7 +2,15 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## Unreleased
+## 3.2.0 - 2026-10-27
+
+### 升级到本版本要做什么
+
+- **Linux（Ubuntu）成为一等部署目标**：systemd 单元 + 服务器端 install.sh + 一键打包脚本，完整流程见 [docs/deploy-ubuntu.md](docs/deploy-ubuntu.md)；Windows 服务行为不变
+- **API 文档在生产环境开放为鉴权入口（行为变化）**：`/scalar` 与 `/openapi` 需管理员凭据（密钥头 / Cookie / Basic 任一，质询形态与 Dashboard 一致）——此前仅 Development 可访问
+- **平台心跳任务默认启用**：Dashboard / TaskConfigs / `/api/tasks` 会多出一个 `heartbeat` 定时任务（每分钟）；不需要时配置 `Hangfire:HeartbeatEnabled=false` 并重启
+- `/info` 新增 `environment`、`heartbeat` 字段（纯新增，现有调用方不受影响）
+- Worker/Api 新增依赖 `Microsoft.Extensions.Hosting.Systemd` 9.0.22（自包含发布自动携带，无需部署动作）
 
 ### 新增
 
