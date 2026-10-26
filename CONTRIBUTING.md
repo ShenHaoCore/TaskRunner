@@ -44,9 +44,9 @@ git switch -c feature/<短横线描述>
 | type | 用于 | 例子 |
 |---|---|---|
 | `feature` | 新增能力 | `feature/http-retry` |
-| `fix` | 修缺陷 | `fix/cookie-expiry-alert` |
+| `fix` | 修缺陷 | `fix/readonly-mode-bypass` |
 | `chore` | 依赖升级、CI、构建配置 | `chore/actions-v5` |
-| `refactor` | 不改行为的结构调整 | `refactor/split-bilibili-module` |
+| `refactor` | 不改行为的结构调整 | `refactor/split-job-executor` |
 | `docs` | 纯文档 | `docs/branch-management` |
 | `test` | 纯测试补充 | `test/repository-coverage` |
 
@@ -78,9 +78,8 @@ hotfix/1.1.1
 例子（对应本仓库的实际改动）：
 
 ```
-feat(bilibili): 视频从关注 UP 主随机选取
-fix: HTTP 层瞬时错误自动重试
-ci: 打 tag 自动发布 Api/Worker 单文件包到 Release
+feat(api): 新增首页入口，Scalar 接口补中文摘要
+ci: Actions 升级至 v5，消除 Node 20 弃用警告
 ```
 
 避免 `update`、`修复一下`、`1` 这类提交信息——**提交历史是给人读的，不是给 git 读的**。

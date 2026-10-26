@@ -10,7 +10,7 @@ public sealed class ArchitectureTests
         var text = File.ReadAllText(apiPath);
         Assert.DoesNotContain("TaskRunner.Worker", text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("TaskRunner.Hangfire", text, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("TaskRunner.Bilibili", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("TaskRunner.Bilibili", text, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

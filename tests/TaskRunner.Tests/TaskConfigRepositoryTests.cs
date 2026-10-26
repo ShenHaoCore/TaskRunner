@@ -50,9 +50,9 @@ public sealed class TaskConfigRepositoryTests : IDisposable
         var repository = scope.ServiceProvider.GetRequiredService<ITaskConfigRepository>();
         await repository.InitializeAsync(CancellationToken.None);
 
-        var disabled = new RecurringJobDescriptor("bilibili-daily", "B站每日任务", "0 0 9 * * *", "T, A", typeof(string), "旧描述", false);
+        var disabled = new RecurringJobDescriptor("sample-daily", "示例每日任务", "0 0 9 * * *", "T, A", typeof(string), "旧描述", false);
         await repository.SyncDiscoveredAsync([disabled], CancellationToken.None);
-        var before = await repository.FindAsync("bilibili-daily", CancellationToken.None);
+        var before = await repository.FindAsync("sample-daily", CancellationToken.None);
         Assert.NotNull(before);
         Assert.False(before.IsEnabled);
         Assert.Equal(before.CreatedAt, before.UpdatedAt);
@@ -60,7 +60,7 @@ public sealed class TaskConfigRepositoryTests : IDisposable
         var enabled = disabled with { EnabledByDefault = true, Description = "新描述" };
         await repository.SyncDiscoveredAsync([enabled], CancellationToken.None);
 
-        var after = await repository.FindAsync("bilibili-daily", CancellationToken.None);
+        var after = await repository.FindAsync("sample-daily", CancellationToken.None);
         Assert.NotNull(after);
         Assert.True(after.IsEnabled);
         Assert.Equal("新描述", after.Description);
