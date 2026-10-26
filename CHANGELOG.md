@@ -2,6 +2,12 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## Unreleased
+
+### 变更
+
+- 依赖机器人（Dependabot）目标分支由 main 改为 develop，并忽略 `Microsoft.*` / `Npgsql*` 的主版本跳变（9→10 需整体 TFM 迁移决策）——此前两者分叉导致 release 合并冲突
+
 ## 3.2.0 - 2026-10-27
 
 ### 升级到本版本要做什么
