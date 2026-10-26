@@ -2,6 +2,21 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 3.0.0 - 2026-10-26
+
+### 升级到本版本要做什么
+
+- **破坏性变更**：存储层从 SQL Server 切换到 PostgreSQL
+  - 连接字符串改为 `Host=...;Port=...;Database=...;Username=...;Password=...` 格式，生产用 `ConnectionStrings__Default` 环境变量覆盖
+  - 需准备 PostgreSQL 15+ 数据库（如 Docker：`docker run -d --name taskrunner-pg -e POSTGRES_USER=taskrunner -e POSTGRES_PASSWORD=... -e POSTGRES_DB=taskrunner -p 5432:5432 postgres:17`）
+  - `TaskConfigs` 数据需迁移到新库（表小，SQL 导出导入即可）；Hangfire 作业历史不迁移，启动时自动重建 `public.TaskConfigs` 与 `hangfire` schema
+  - `Hangfire:Storage` 键名不变，取值改为 `PostgreSql`（默认值即如此，一般无需配置）
+- 其余能力不变：任务契约、发现、启用/Cron 运维、Dashboard、REST、鉴权、只读模式
+
+### 变更
+
+- 数据库从 SQL Server 切换到 PostgreSQL：EF 提供程序换为 Npgsql，Hangfire 存储换为 Hangfire.PostgreSql（schema `hangfire`），连接字符串改为 `Host=...;Port=...;Database=...;Username=...;Password=...` 格式
+
 ## 2.0.0 - 2026-10-26
 
 ### 升级到本版本要做什么
