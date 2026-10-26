@@ -22,7 +22,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\TaskRunner.Core\TaskRunner.Core.csproj" />
-    <ProjectReference Include="..\..\src\TaskRunner.Bilibili\TaskRunner.Bilibili.csproj" />
   </ItemGroup>
 
 </Project>

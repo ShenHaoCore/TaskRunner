@@ -79,12 +79,9 @@ public static class WebApplicationExtensions
             readOnly = hangfireOptions.ReadOnlyMode,
             dashboard = dashboardPath,
             scalar = environment.IsDevelopment() ? "/scalar" : null,
-            bilibiliLogin = "/bilibili-login.html",
             tasks = "/api/tasks",
             authLogin = "/api/auth/login"
         })).AllowAnonymous();
-
-        app.MapGet("/bilibili-login", () => Results.Redirect("/bilibili-login.html")).AllowAnonymous();
 
         app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 
