@@ -1,0 +1,21 @@
+[Unit]
+Description=TaskRunner Worker (Hangfire Server)
+Wants=network-online.target
+After=network-online.target postgresql.service
+
+[Service]
+Type=notify
+User=taskrunner
+Group=taskrunner
+WorkingDirectory=/opt/taskrunner/worker
+Environment=ASPNETCORE_ENVIRONMENT=Production
+EnvironmentFile=-/etc/default/taskrunner
+ExecStart=/opt/taskrunner/worker/TaskRunner.Worker
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=30
+SyslogIdentifier=taskrunner-worker
+
+[Install]
+WantedBy=multi-user.target

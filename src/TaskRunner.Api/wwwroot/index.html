@@ -3,246 +3,631 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TaskRunner</title>
+    <title>TaskRunner — 任务调度平台</title>
+    <script>
+        // 主题初始化须在样式应用前完成，避免闪烁
+        document.documentElement.setAttribute(
+            "data-theme",
+            localStorage.getItem("tr-theme") === "dark" ? "dark" : "light");
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
     <style>
+        /* 双主题 token：
+           light = LeptonX Light（源自 @volosoft/ngx-lepton-x bootstrap-light.css，紫蓝品牌渐变）
+           dark  = Linear（#010102 近黑画布 + 发丝线 + 薰衣草蓝 #5e6ad2，无渐变无阴影） */
         :root {
-            --bg0: #0f1419;
-            --bg1: #1a2332;
-            --ink: #e8eef6;
-            --muted: #8b9bb4;
-            --line: rgba(232, 238, 246, 0.12);
-            --accent: #3d9cfd;
-            --accent-dim: rgba(61, 156, 253, 0.16);
-            --ok: #3ecf8e;
-            --warn: #f0b429;
-            --bad: #f07178;
+            --radius: 8px;
+            --radius-lg: 9px;
+        }
+
+        html[data-theme="light"] {
+            color-scheme: light;
+            --body-bg: #f8f9fa;
+            --card-bg: #ffffff;
+            --tile-bg: #f8f9fa;
+            --border-color: #e8eef3;
+            --hover-border: #aebeff;
+            --body-color: #325168;
+            --body-secondary-color: rgba(50, 81, 104, 0.75);
+            --body-tertiary-color: rgba(50, 81, 104, 0.55);
+            --primary: #355dff;
+            --primary-hover: #2a4ae6;
+            --primary-bg-subtle: #d7deff;
+            --primary-border-subtle: #aebeff;
+            --mark-bg: linear-gradient(120deg, #6c5dd3 0%, #355dff 100%);
+            --brand-gradient: linear-gradient(120deg, #6c5dd3 0%, #355dff 100%);
+            --chip-bg: #d7deff;
+            --chip-border: #aebeff;
+            --chip-ink: #355dff;
+            --badge-bg: #d7deff;
+            --badge-border: #aebeff;
+            --badge-ink: #325168;
+            --btn2-hover-bg: #ffffff;
+            --card-hover-bg: #ffffff;
+            --secondary-bg: #e9ecef;
+            --success: #4fbf67;
+            --danger: #c00d49;
+            --shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            --shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+            --focus-ring: rgba(53, 93, 255, 0.12);
+            --nav-bg: rgba(255, 255, 255, 0.9);
+            --foot-bg: #ffffff;
+        }
+
+        html[data-theme="dark"] {
+            color-scheme: dark;
+            --body-bg: #010102;
+            --card-bg: #0f1011;
+            --tile-bg: #010102;
+            --border-color: #23252a;
+            --hover-border: #34343a;
+            --body-color: #f7f8f8;
+            --body-secondary-color: #d0d6e0;
+            --body-tertiary-color: #8a8f98;
+            --primary: #5e6ad2;
+            --primary-hover: #828fff;
+            --primary-bg-subtle: rgba(94, 106, 210, 0.16);
+            --primary-border-subtle: rgba(94, 106, 210, 0.45);
+            --mark-bg: #5e6ad2;
+            --chip-bg: transparent;
+            --chip-border: transparent;
+            --chip-ink: #8a8f98;
+            --badge-bg: #141516;
+            --badge-border: transparent;
+            --badge-ink: #d0d6e0;
+            --btn2-hover-bg: #141516;
+            --card-hover-bg: #141516;
+            --secondary-bg: #34343a;
+            --success: #27a644;
+            --danger: #eb5757;
+            --shadow-sm: none;
+            --shadow: none;
+            --focus-ring: rgba(94, 106, 210, 0.25);
+            --nav-bg: rgba(1, 1, 2, 0.86);
+            --foot-bg: #010102;
+            --radius-lg: 12px;
         }
 
         * {
             box-sizing: border-box;
         }
 
-        html, body {
-            height: 100%;
-            margin: 0;
+        html {
+            background: var(--body-bg);
         }
 
         body {
-            font-family: "Noto Sans SC", "Segoe UI", sans-serif;
-            color: var(--ink);
-            background: radial-gradient(1200px 600px at 10% -10%, rgba(61, 156, 253, 0.18), transparent 55%), radial-gradient(900px 500px at 100% 0%, rgba(62, 207, 142, 0.08), transparent 50%), linear-gradient(160deg, var(--bg0), var(--bg1) 55%, #121820);
-            min-height: 100%;
+            margin: 0;
+            min-height: 100vh;
+            background: var(--body-bg);
+            color: var(--body-color);
+            font-family: "Inter", -apple-system, "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 14px;
+            -webkit-font-smoothing: antialiased;
         }
 
-        .wrap {
-            max-width: 920px;
-            margin: 0 auto;
-            padding: 12vh 24px 48px;
+        a {
+            color: var(--primary);
+            text-decoration: none;
         }
 
-        .brand {
-            font-family: "JetBrains Mono", ui-monospace, monospace;
-            font-size: clamp(2.4rem, 6vw, 3.6rem);
-            font-weight: 500;
-            letter-spacing: -0.04em;
-            margin: 0 0 12px;
-            line-height: 1.05;
-        }
-
-            .brand span {
-                color: var(--accent);
+            a:hover {
+                text-decoration: underline;
             }
 
-        .lead {
-            margin: 0 0 36px;
-            max-width: 36rem;
-            color: var(--muted);
-            font-size: 1.05rem;
+        [hidden] {
+            display: none !important;
+        }
+
+        :focus-visible {
+            outline: 2px solid var(--primary-border-subtle);
+            outline-offset: 2px;
+        }
+
+        .container {
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* ── 顶导航 ─────────────────────────────────────────── */
+
+        .nav {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--nav-bg);
+            backdrop-filter: blur(10px);
+        }
+
+        .nav::after {
+            content: "";
+            display: block;
+            height: 3px;
+            background: var(--brand-gradient, transparent);
+        }
+
+        html[data-theme="dark"] .nav::after {
+            display: none;
+        }
+
+        .nav-inner {
+            height: 56px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .wordmark {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: -0.2px;
+            color: var(--body-color);
+        }
+
+            .wordmark:hover {
+                text-decoration: none;
+            }
+
+        .wordmark .mark {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            background: var(--mark-bg);
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-size: 14px;
+        }
+
+            .nav-links a {
+                color: var(--body-secondary-color);
+            }
+
+                .nav-links a:hover {
+                    color: var(--primary);
+                    text-decoration: none;
+                }
+
+        .nav-spacer {
+            flex: 1;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--badge-bg);
+            border: 1px solid var(--badge-border);
+            color: var(--badge-ink);
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 9999px;
+            padding: 3px 10px;
+            white-space: nowrap;
+        }
+
+            .badge .dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 9999px;
+                background: var(--secondary-bg);
+            }
+
+            .badge .dot.ok {
+                background: var(--success);
+            }
+
+        .theme-toggle {
+            width: 34px;
+            height: 34px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            color: var(--body-secondary-color);
+            font-size: 14px;
+            cursor: pointer;
+            transition: border-color 0.15s ease, color 0.15s ease;
+        }
+
+            .theme-toggle:hover {
+                border-color: var(--hover-border);
+                color: var(--primary);
+            }
+
+        /* ── hero ───────────────────────────────────────────── */
+
+        .hero {
+            padding: 72px 0 40px;
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--chip-bg);
+            border: 1px solid var(--chip-border);
+            color: var(--chip-ink);
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 9999px;
+            padding: 4px 12px;
+            margin: 0 0 20px;
+        }
+
+        h1 {
+            margin: 0 0 14px;
+            font-size: clamp(34px, 5vw, 54px);
+            font-weight: 700;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+            color: var(--body-color);
+            max-width: 18em;
+        }
+
+        .subhead {
+            margin: 0;
+            max-width: 34em;
+            font-size: 16px;
+            font-weight: 400;
             line-height: 1.6;
+            color: var(--body-secondary-color);
         }
 
         .actions {
             display: flex;
             flex-wrap: wrap;
             gap: 12px;
-            margin-bottom: 48px;
+            margin-top: 28px;
         }
 
         .btn {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 12px 18px;
-            border-radius: 10px;
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 0.95rem;
-            border: 1px solid var(--line);
-            transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 1.2;
+            padding: 10px 18px;
+            border-radius: var(--radius);
+            border: 1px solid transparent;
+            transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+            min-height: 42px;
         }
 
             .btn:hover {
-                transform: translateY(-1px);
+                text-decoration: none;
             }
 
         .btn-primary {
-            background: var(--accent);
-            color: #061018;
-            border-color: transparent;
+            background: var(--primary);
+            color: #fff;
+            box-shadow: var(--shadow-sm);
         }
 
             .btn-primary:hover {
-                background: #62b0ff;
+                background: var(--primary-hover);
+                color: #fff;
             }
 
-        .btn-ghost {
-            background: var(--accent-dim);
-            color: var(--ink);
+        .btn-secondary {
+            background: var(--card-bg);
+            color: var(--body-color);
+            border-color: var(--border-color);
         }
 
-            .btn-ghost:hover {
-                border-color: rgba(61, 156, 253, 0.45);
+            .btn-secondary:hover {
+                background: var(--btn2-hover-bg);
+                border-color: var(--hover-border);
+                color: var(--primary);
             }
 
-        .panel {
-            border: 1px solid var(--line);
-            border-radius: 16px;
-            background: rgba(15, 20, 25, 0.55);
-            backdrop-filter: blur(8px);
-            padding: 20px 22px;
+        /* ── 运行概览卡片 ───────────────────────────────────── */
+
+        .console {
+            background: var(--card-bg);
+            border: 0;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            padding: 24px;
+            margin: 32px 0 0;
         }
 
-            .panel h2 {
-                margin: 0 0 14px;
-                font-size: 0.85rem;
-                font-weight: 500;
-                color: var(--muted);
-                letter-spacing: 0.04em;
-                text-transform: uppercase;
+        .console-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+            .console-head h2 {
+                margin: 0;
+                font-size: 20px;
+                font-weight: 700;
+                letter-spacing: -0.02em;
+                color: var(--body-color);
             }
 
         .stats {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 12px;
         }
 
         .stat {
-            padding: 12px 14px;
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--line);
+            background: var(--tile-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 14px 16px;
         }
 
             .stat .label {
-                display: block;
-                font-size: 0.78rem;
-                color: var(--muted);
-                margin-bottom: 6px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 12px;
+                font-weight: 500;
+                color: var(--body-secondary-color);
+                margin-bottom: 8px;
+            }
+
+            .stat .dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 9999px;
+                background: var(--secondary-bg);
+            }
+
+            .stat .dot.ok {
+                background: var(--success);
+            }
+
+            .stat .dot.bad {
+                background: var(--danger);
             }
 
             .stat .value {
-                font-family: "JetBrains Mono", ui-monospace, monospace;
-                font-size: 1.35rem;
-                font-weight: 500;
+                font-size: 24px;
+                font-weight: 700;
+                letter-spacing: -0.02em;
+                color: var(--body-color);
             }
 
-            .stat.ok .value {
-                color: var(--ok);
-            }
-
-            .stat.bad .value {
-                color: var(--bad);
-            }
-
-            .stat.warn .value {
-                color: var(--warn);
-            }
-
-        .meta {
-            margin-top: 18px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px 18px;
-            font-size: 0.85rem;
-            color: var(--muted);
+        .hint {
+            margin: 16px 0 0;
+            font-size: 12px;
+            line-height: 1.4;
+            color: var(--body-tertiary-color);
+            min-height: 1.4em;
         }
 
-            .meta a {
-                color: var(--accent);
+            .hint a {
+                color: var(--primary);
+            }
+
+        /* ── 特性卡 ─────────────────────────────────────────── */
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            padding: 40px 0 64px;
+        }
+
+        .feature {
+            position: relative;
+            display: block;
+            background: var(--card-bg);
+            border: 0;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            padding: 24px;
+            color: var(--body-color);
+            transition: box-shadow 0.15s ease, transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+        }
+
+            .feature:hover {
+                background: var(--card-hover-bg);
+                box-shadow: var(--shadow);
+                transform: translateY(-2px);
                 text-decoration: none;
             }
 
-                .meta a:hover {
-                    text-decoration: underline;
-                }
-
-        .hint {
-            margin-top: 10px;
-            font-size: 0.8rem;
-            color: var(--muted);
-            min-height: 1.2em;
+        html[data-theme="dark"] .feature {
+            border: 1px solid var(--border-color);
         }
 
-        @media (max-width: 560px) {
-            .wrap {
-                padding-top: 8vh;
+        html[data-theme="dark"] .feature:hover {
+            transform: none;
+            border-color: var(--hover-border);
+        }
+
+            .feature .arrow {
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                color: var(--body-tertiary-color);
+                font-size: 14px;
             }
 
-            .actions {
-                flex-direction: column;
+            .feature h3 {
+                margin: 0 0 8px;
+                font-size: 16px;
+                font-weight: 700;
+                letter-spacing: -0.01em;
             }
 
-            .btn {
-                justify-content: center;
+            .feature p {
+                margin: 0;
+                font-size: 14px;
+                line-height: 1.6;
+                color: var(--body-secondary-color);
+            }
+
+            .feature code {
+                font-size: 12px;
+                background: var(--chip-bg);
+                border-radius: 4px;
+                padding: 1px 5px;
+                color: var(--chip-ink);
+            }
+
+        /* ── footer ─────────────────────────────────────────── */
+
+        footer {
+            border-top: 1px solid var(--border-color);
+            background: var(--foot-bg);
+            padding: 24px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 24px;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--body-tertiary-color);
+        }
+
+            footer a {
+                color: var(--body-secondary-color);
+            }
+
+                footer a:hover {
+                    color: var(--primary);
+                }
+
+        @media (max-width: 900px) {
+            .features {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .hero {
+                padding-top: 48px;
             }
         }
     </style>
 </head>
 <body>
-    <main class="wrap">
-        <h1 class="brand">Task<span>Runner</span></h1>
-        <p class="lead">定时任务调度中心。监控、触发与文档从这里进入；任务由独立 Worker 服务执行。</p>
-
-        <div class="actions">
-            <a class="btn btn-ghost" id="link-dashboard" href="/taskrunner">打开 Dashboard</a>
-            <a class="btn btn-ghost" id="link-scalar" href="/scalar" hidden>API 文档 (Scalar)</a>
-            <a class="btn btn-ghost" href="/api/tasks">任务列表 API</a>
-        </div>
-
-        <section class="panel" aria-label="运行概览">
-            <h2>运行概览</h2>
-            <div class="stats" id="stats">
-                <div class="stat ok"><span class="label">成功</span><span class="value" data-k="succeeded">—</span></div>
-                <div class="stat bad"><span class="label">失败</span><span class="value" data-k="failed">—</span></div>
-                <div class="stat warn"><span class="label">排队</span><span class="value" data-k="enqueued">—</span></div>
-                <div class="stat"><span class="label">处理中</span><span class="value" data-k="processing">—</span></div>
-                <div class="stat"><span class="label">定时任务</span><span class="value" data-k="recurring">—</span></div>
-                <div class="stat"><span class="label">Worker</span><span class="value" data-k="servers">—</span></div>
-            </div>
-            <p class="hint" id="hint">正在加载统计…</p>
-            <div class="meta">
-                <span>角色：<span id="role">—</span></span>
+    <header class="nav">
+        <div class="container nav-inner">
+            <a class="wordmark" href="/"><span class="mark">▸</span>TaskRunner</a>
+            <nav class="nav-links" aria-label="快捷入口">
+                <a href="/taskrunner">Dashboard</a>
+                <a href="/api/tasks">任务 API</a>
+                <a href="/login.html">登录</a>
                 <a href="/info">/info</a>
                 <a href="/health">/health</a>
+            </nav>
+            <span class="nav-spacer"></span>
+            <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换亮暗主题">☾</button>
+            <span class="badge" id="role-badge"><span class="dot" id="role-dot"></span><span id="role-text">加载中</span></span>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="hero">
+            <p class="eyebrow">任务调度平台 · 基于 Hangfire</p>
+            <h1>定时任务，从这里调度与观察</h1>
+            <p class="subhead">Api 负责入队、Dashboard 与运维接口；作业由独立的 Worker 服务执行，状态实时汇总在下方。</p>
+            <div class="actions">
+                <a class="btn btn-primary" id="link-dashboard" href="/taskrunner">打开 Dashboard</a>
+                <a class="btn btn-secondary" href="/api/tasks">任务列表 API</a>
+                <a class="btn btn-secondary" id="link-scalar" href="/scalar" hidden>API 文档 (Scalar)</a>
             </div>
+
+            <section class="console" aria-label="运行概览">
+                <div class="console-head">
+                    <h2>运行概览</h2>
+                    <span class="badge"><span class="dot" id="worker-dot"></span><span id="worker-text">检查中</span></span>
+                </div>
+                <div class="stats">
+                    <div class="stat"><span class="label"><span class="dot" data-dot="succeeded"></span>成功</span><span class="value" data-k="succeeded">—</span></div>
+                    <div class="stat"><span class="label"><span class="dot" data-dot="failed"></span>失败</span><span class="value" data-k="failed">—</span></div>
+                    <div class="stat"><span class="label"><span class="dot" data-dot="enqueued"></span>排队</span><span class="value" data-k="enqueued">—</span></div>
+                    <div class="stat"><span class="label"><span class="dot" data-dot="processing"></span>处理中</span><span class="value" data-k="processing">—</span></div>
+                    <div class="stat"><span class="label">定时任务</span><span class="value" data-k="recurring">—</span></div>
+                    <div class="stat"><span class="label"><span class="dot" data-dot="servers"></span>Worker</span><span class="value" data-k="servers">—</span></div>
+                </div>
+                <p class="hint" id="hint">正在加载统计…</p>
+            </section>
+        </section>
+
+        <section class="features" aria-label="能力入口">
+            <a class="feature" href="/taskrunner">
+                <span class="arrow">↗</span>
+                <h3>Hangfire Dashboard</h3>
+                <p>实时查看队列、重试与服务器状态，生产环境经管理员鉴权进入。</p>
+            </a>
+            <a class="feature" href="/api/tasks">
+                <span class="arrow">↗</span>
+                <h3>运维 REST</h3>
+                <p><code>/api/tasks</code> 提供清单、统计、启停、触发与 Cron 覆盖，凭 <code>X-TaskRunner-Admin</code> 密钥调用。</p>
+            </a>
+            <a class="feature" href="/info">
+                <span class="arrow">↗</span>
+                <h3>插件式任务</h3>
+                <p>实现 <code>IRecurringJob</code> 的程序集经 <code>AddTaskRunnerCore</code> 注入，重启即自动注册。</p>
+            </a>
         </section>
     </main>
 
+    <footer>
+        <div class="container" style="display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-between;">
+            <span>TaskRunner · 生产形态 Api + Worker 双服务</span>
+            <span><a href="/info">/info</a> · <a href="/health">/health</a></span>
+        </div>
+    </footer>
+
     <script>
+        (function () {
+            const toggle = document.getElementById("theme-toggle");
+            const syncIcon = () => {
+                toggle.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀" : "☾";
+            };
+            toggle.addEventListener("click", () => {
+                const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+                document.documentElement.setAttribute("data-theme", next);
+                localStorage.setItem("tr-theme", next);
+                syncIcon();
+            });
+            syncIcon();
+        })();
+
         (async function () {
             const hint = document.getElementById("hint");
             const scalar = document.getElementById("link-scalar");
             const dashboard = document.getElementById("link-dashboard");
+            const roleText = document.getElementById("role-text");
+            const workerText = document.getElementById("worker-text");
+            const workerDot = document.getElementById("worker-dot");
 
             try {
                 const info = await fetch("/info").then((r) => r.json());
                 if (info.dashboard) dashboard.href = info.dashboard;
-                const role = document.getElementById("role");
-                if (role && info.role) role.textContent = info.role;
+                if (roleText) {
+                    const parts = [info.environment, info.role].filter(Boolean);
+                    if (parts.length) roleText.textContent = parts.join(" · ") + (info.readOnly ? " · 只读" : "");
+                }
                 if (info.scalar) {
                     scalar.hidden = false;
                     scalar.href = info.scalar;
@@ -251,26 +636,40 @@
                 /* keep defaults */
             }
 
+            const dots = {
+                succeeded: document.querySelector('[data-dot="succeeded"]'),
+                failed: document.querySelector('[data-dot="failed"]'),
+                servers: document.querySelector('[data-dot="servers"]')
+            };
+
             try {
                 const stats = await fetch("/api/tasks/statistics").then((r) => {
-                    if (!r.ok) throw new Error(r.statusText);
+                    if (!r.ok) throw new Error(r.status === 401 ? "401" : r.statusText);
                     return r.json();
                 });
-                const map = {
-                    succeeded: stats.succeeded,
-                    failed: stats.failed,
-                    enqueued: stats.enqueued,
-                    processing: stats.processing,
-                    recurring: stats.recurring,
-                    servers: stats.servers
-                };
-                for (const [key, value] of Object.entries(map)) {
+                for (const key of ["succeeded", "failed", "enqueued", "processing", "recurring", "servers"]) {
                     const el = document.querySelector('[data-k="' + key + '"]');
-                    if (el) el.textContent = value ?? "—";
+                    if (el) el.textContent = stats[key] ?? "—";
                 }
+                const setDot = (el, on, bad) => {
+                    if (!el) return;
+                    el.className = "dot" + (on ? (bad ? " bad" : " ok") : "");
+                };
+                setDot(dots.succeeded, stats.succeeded > 0, false);
+                setDot(dots.failed, stats.failed > 0, true);
+                const online = (stats.servers ?? 0) > 0;
+                setDot(dots.servers, online, false);
+                if (workerDot) workerDot.className = "dot" + (online ? " ok" : "");
+                if (workerText) workerText.textContent = online ? "Worker 在线 ×" + stats.servers : "无 Worker";
                 hint.textContent = "数据来自 Hangfire 监控接口。";
             } catch (err) {
-                hint.textContent = "统计暂不可用：" + (err.message || "未知错误");
+                if (err.message === "401") {
+                    hint.innerHTML = '统计需要管理员鉴权：<a href="/login.html">先登录</a>，再刷新本页。';
+                    if (workerText) workerText.textContent = "需要鉴权";
+                } else {
+                    hint.textContent = "统计暂不可用：" + (err.message || "未知错误");
+                    if (workerText) workerText.textContent = "不可用";
+                }
             }
         })();
     </script>

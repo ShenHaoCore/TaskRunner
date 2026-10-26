@@ -2,12 +2,22 @@ using Hangfire;
 using Hangfire.Common;
 using Hangfire.Storage;
 using Hangfire.Storage.Monitoring;
+using TaskRunner.Core.Jobs;
 using TaskRunner.Core.Models;
 
 namespace TaskRunner.Api.Services;
 
 public sealed class HangfireMonitoringReader(JobStorage storage, ILogger<HangfireMonitoringReader> logger)
 {
+    /// <summary>读取平台心跳的最近/下次执行；recurring 未注册（如开关关闭）时返回 null。</summary>
+    public (DateTime? LastExecution, DateTime? NextExecution)? ReadHeartbeat()
+    {
+        var recurring = ReadRecurringJobs();
+        return recurring.TryGetValue(HeartbeatJob.JobIdValue, out var job)
+            ? (job.LastExecution, job.NextExecution)
+            : null;
+    }
+
     public JobStatistics ReadStatistics()
     {
         var stats = storage.GetMonitoringApi().GetStatistics();

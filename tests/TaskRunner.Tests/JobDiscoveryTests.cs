@@ -68,10 +68,15 @@ public sealed class CronExpressionGuardTests
 public sealed class JobScannerTests
 {
     [Fact]
-    public void Scan_CoreHasNoBuiltInJobs()
+    public void Scan_CoreContainsOnlyPlatformHeartbeat()
     {
         var jobs = RecurringJobScanner.Scan(typeof(IRecurringJob).Assembly);
-        Assert.Empty(jobs);
+
+        // 契约：Core 只内置平台心跳，业务任务一律经插件程序集注入。
+        var job = Assert.Single(jobs);
+        Assert.Equal(HeartbeatJob.JobIdValue, job.JobId);
+        Assert.Equal("0 * * * * *", job.Cron);
+        Assert.True(job.EnabledByDefault);
     }
 
     [Fact]
