@@ -1,4 +1,4 @@
-# TaskRunner 平台 Spec
+# TaskRunner 开发规格
 
 > status: ready-for-agent
 >
