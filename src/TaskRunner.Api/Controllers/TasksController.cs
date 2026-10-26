@@ -11,6 +11,7 @@ namespace TaskRunner.Api.Controllers;
 
 [ApiController]
 [Route("api/tasks")]
+[Authorize(Policy = AdminAuthDefaults.Policy)]
 [Tags("任务管理")]
 public sealed class TasksController(
     ITaskConfigRepository repository,
@@ -51,7 +52,6 @@ public sealed class TasksController(
         return Ok(monitoring.ReadHistory(jobId, limit));
     }
 
-    [Authorize(Policy = AdminAuthDefaults.Policy)]
     [HttpPost("{jobId}/trigger", Name = "TriggerTask")]
     [EndpointSummary("触发")]
     public async Task<ActionResult<QueueJobResult>> Trigger(string jobId, CancellationToken cancellationToken)
@@ -62,7 +62,6 @@ public sealed class TasksController(
         return Ok(new QueueJobResult(config.JobId, queueJobId));
     }
 
-    [Authorize(Policy = AdminAuthDefaults.Policy)]
     [HttpPost("{jobId}/pause", Name = "PauseTask")]
     [EndpointSummary("暂停")]
     public async Task<ActionResult<TaskConfigView>> Pause(string jobId, CancellationToken cancellationToken)
@@ -73,7 +72,6 @@ public sealed class TasksController(
         return Ok(monitoring.ReadTasks([config])[0]);
     }
 
-    [Authorize(Policy = AdminAuthDefaults.Policy)]
     [HttpPost("{jobId}/resume", Name = "ResumeTask")]
     [EndpointSummary("恢复")]
     public async Task<ActionResult<TaskConfigView>> Resume(string jobId, CancellationToken cancellationToken)

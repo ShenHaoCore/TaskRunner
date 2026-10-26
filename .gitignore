@@ -9,5 +9,11 @@ artifacts/
 *.db
 *.db-shm
 *.db-wal
+.DS_Store
+.screenshots/
 
 .workbuddy/
+
+# dotnet 测试结果
+TestResults/
+*.trx

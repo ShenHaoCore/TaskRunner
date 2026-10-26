@@ -20,14 +20,7 @@ builder.Services.AddSerilog((services, configuration) => configuration
 var logRoot = AppPaths.FindSolutionRoot(builder.Environment.ContentRootPath) ?? builder.Environment.ContentRootPath;
 Directory.SetCurrentDirectory(logRoot);
 
-if (!builder.Environment.IsDevelopment())
-{
-    var adminKey = builder.Configuration.GetSection(TaskRunnerOptions.SectionName)["AdminApiKey"];
-    if (string.IsNullOrWhiteSpace(adminKey))
-    {
-        throw new InvalidOperationException("生产环境必须配置 Hangfire:AdminApiKey。");
-    }
-}
+// 生产环境未配置管理员密钥时启动即失败：AdminKeyGuardStartupFilter（AddTaskRunnerAdminAuth 注册）。
 
 // 开发：单进程 Combined（不必再开 Worker）；生产 Api 仅 Client，执行靠 Worker 服务。
 var hangfireRole = builder.Environment.IsDevelopment() ? HangfireHostRole.Combined : HangfireHostRole.Client;
@@ -53,3 +46,5 @@ app.Logger.LogInformation(
     hangfireOptions.Storage,
     hangfireOptions.NormalizeDashboardPath());
 app.Run();
+
+public partial class Program { }

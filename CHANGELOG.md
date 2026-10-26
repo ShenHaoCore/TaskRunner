@@ -2,6 +2,20 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 3.1.0 - 2026-10-26
+
+### 升级到本版本要做什么
+
+- **安全收紧（行为变化）**：REST `/api/tasks` 全部端点在生产环境必须携带管理员密钥（header `X-TaskRunner-Admin` / cookie `TaskRunner.Admin` / Basic 三形态任一）——此前 GET 清单/统计/详情/历史与 PUT cron 匿名可访问。已携带密钥的调用方无感；匿名调用方升级后必须补齐
+- 若以容器/服务方式部署且从未配置 `Hangfire:AdminApiKey`，升级后启动会直接失败（fail-fast）——补配密钥即可
+
+### 变更
+
+- **安全修复**：`TasksController` 管理员鉴权策略上提到类级，堵住 GET 全部端点与 PUT cron 匿名可访问的缺口
+- 生产环境未配置管理员密钥时启动即失败：守卫从 Program 下沉为 `AdminKeyGuardStartupFilter`，随 `AddTaskRunnerAdminAuth` 自动生效
+- 测试体系：39 个测试覆盖 Core 契约（23）、REST 运维主缝（9）与鉴权/只读安全面（7），此前 REST 层零测试覆盖
+- 开发规格体系落地：`docs/specs/` 索引 + platform 规格（`spec.md`）与四张票（全部完成）
+
 ## 3.0.0 - 2026-10-26
 
 ### 升级到本版本要做什么
