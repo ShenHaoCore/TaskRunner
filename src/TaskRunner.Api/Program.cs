@@ -17,6 +17,9 @@ builder.Services.AddSerilog((services, configuration) => configuration
     .Enrich.FromLogContext()
     .Enrich.WithProperty("Application", "TaskRunner.Api"));
 
+// Linux systemd 部署（Type=notify）；非 systemd 环境为 no-op。
+builder.Services.AddSystemd();
+
 var logRoot = AppPaths.FindSolutionRoot(builder.Environment.ContentRootPath) ?? builder.Environment.ContentRootPath;
 Directory.SetCurrentDirectory(logRoot);
 

@@ -59,14 +59,18 @@ dotnet run --project src/TaskRunner.Worker
 ./scripts/uninstall-worker-service.ps1
 ```
 
+Linux（Ubuntu）部署：打包 `./scripts/publish-linux.ps1`，服务器端 systemd 安装见 [docs/deploy-ubuntu.md](docs/deploy-ubuntu.md)。
+
 ## 项目结构
 
 ```
 src/
   TaskRunner.Api/        # 开发 Combined；生产 Client + Dashboard + REST
-  TaskRunner.Worker/     # 生产 Server（Windows 服务）
+  TaskRunner.Worker/     # 生产 Server（Windows 服务 / systemd）
   TaskRunner.Hangfire/   # Hangfire 装配 + Console
   TaskRunner.Core/       # 任务契约与配置（无 Hangfire）
+deploy/
+  linux/                 # systemd 单元 + install.sh（随发布包带上服务器）
 ```
 
 业务任务不进本仓库：实现 `IRecurringJob` 的程序集通过 `AddTaskRunnerCore(..., extraAssemblies)` 以插件方式注入。

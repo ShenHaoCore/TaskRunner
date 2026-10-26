@@ -1,0 +1,22 @@
+[Unit]
+Description=TaskRunner Api (Hangfire Client + Dashboard)
+Wants=network-online.target
+After=network-online.target postgresql.service
+
+[Service]
+Type=notify
+User=taskrunner
+Group=taskrunner
+WorkingDirectory=/opt/taskrunner/api
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5088
+EnvironmentFile=-/etc/default/taskrunner
+ExecStart=/opt/taskrunner/api/TaskRunner.Api
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=30
+SyslogIdentifier=taskrunner-api
+
+[Install]
+WantedBy=multi-user.target
