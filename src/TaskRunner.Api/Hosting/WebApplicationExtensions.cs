@@ -1,3 +1,4 @@
+using System.Reflection;
 using Hangfire;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
@@ -108,6 +109,10 @@ public static class WebApplicationExtensions
             return Results.Ok(new
             {
                 name = "TaskRunner",
+                // 发布时由 CI 注入 -p:InformationalVersion=版本号（随 tag），本机构建回退程序集版本
+                version = typeof(WebApplicationExtensions).Assembly
+                    .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                    ?? typeof(WebApplicationExtensions).Assembly.GetName().Version?.ToString(),
                 environment = app.Environment.EnvironmentName,
                 role = hangfireRole.ToString(),
                 readOnly = hangfireOptions.ReadOnlyMode,

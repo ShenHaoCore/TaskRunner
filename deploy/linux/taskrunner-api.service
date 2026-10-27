@@ -20,5 +20,18 @@ KillSignal=SIGINT
 TimeoutStopSec=30
 SyslogIdentifier=taskrunner-api
 
+# 安全硬化（systemd.exec(5)）：.NET JIT 需要 W+X 内存，故不加 MemoryDenyWriteExecute
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
 [Install]
 WantedBy=multi-user.target

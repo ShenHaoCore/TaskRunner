@@ -2,6 +2,25 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 3.5.0 - 2026-10-28
+
+### 升级到本版本要做什么
+
+- 重跑 `install.sh` 即可完成升级：systemd unit 会重写并加入安全硬化指令（`NoNewPrivileges`、`ProtectSystem=full` 等）
+- 对外经 nginx 暴露时，建议按部署文档补上安全响应头（CSP 等，含现成配置示例）
+- 可选：配置 `Hangfire__HeartbeatPingUrl` 接入 healthchecks.io 类死信告警
+- 自定义页面样式整体更换为 Hangfire Dashboard 风格，若有引用页内 CSS 类的外部脚本需留意
+
+### 变更
+
+- 心跳死信开关：`Hangfire:HeartbeatPingUrl` 配置后心跳成功即 POST，ping 失败计入重试/Failed，外部服务「未按时收到 ping」即告警
+- 自定义页面（首页/运行台/登录）改为 Hangfire Dashboard 同款风格：浅色为官方经典款、深色为 1.8 官方暗色（token 取自 Hangfire.Core 1.8.25 内嵌 CSS）；移除 Google Fonts 外链
+- 作业控制台日志升级：▶/✔/✘ 符号、灰/绿/红着色与真实耗时，失败原因直接写入作业详情页
+- 版本注入程序集：发布流水线随 tag 写入 `InformationalVersion`，`/info` 新增 `version` 字段，首页页脚展示
+- systemd 硬化：Api/Worker unit 增加 `NoNewPrivileges`、`ProtectSystem=full`、`PrivateTmp` 等最小权限指令
+- 部署脚本上传包 SHA256 校验：WSL（9P 陈旧读取）与 scp 两条链路均覆盖，不一致自动重试一次后中止
+- 部署文档：nginx 安全响应头（CSP）示例、PostgreSQL 每日定时备份（pg_dump）与恢复说明
+
 ## 3.4.0 - 2026-10-27
 
 ### 升级到本版本要做什么

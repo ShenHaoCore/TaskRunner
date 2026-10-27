@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Hangfire;
 using Hangfire.Console;
 using Hangfire.Console.Progress;
@@ -23,17 +24,31 @@ public sealed class HangfireJobGateway(JobExecutor executor, JobProgressContext 
         var cancellation = token?.ShutdownToken ?? CancellationToken.None;
         var console = new HangfireConsoleJobProgress(context);
         progressContext.Current = console;
-        console.WriteLine($"开始：{jobId}");
+        var startedAt = Stopwatch.GetTimestamp();
+        console.WriteLine(ConsoleTextColor.Gray, $"▶ 开始 {jobId}");
 
         try
         {
             await executor.ExecuteAsync(jobId, jobTypeName, cancellation);
-            console.WriteLine($"结束：{jobId}");
+            console.WriteLine(ConsoleTextColor.Green, $"✔ 完成 {jobId}（耗时 {FormatElapsed(startedAt)}）");
+        }
+        catch (Exception ex)
+        {
+            console.WriteLine(ConsoleTextColor.Red, $"✘ 失败 {jobId}（耗时 {FormatElapsed(startedAt)}）：{ex.GetType().Name}: {ex.Message}");
+            throw;
         }
         finally
         {
             progressContext.Current = NullJobProgress.Instance;
         }
+    }
+
+    private static string FormatElapsed(long startedAt)
+    {
+        var elapsed = Stopwatch.GetElapsedTime(startedAt);
+        return elapsed.TotalMilliseconds < 1000
+            ? $"{elapsed.TotalMilliseconds:F0} ms"
+            : $"{elapsed.TotalSeconds:F1} s";
     }
 }
 
@@ -47,6 +62,14 @@ internal sealed class HangfireConsoleJobProgress(PerformContext context) : IJobP
         lock (_gate)
         {
             context.WriteLine(message);
+        }
+    }
+
+    public void WriteLine(ConsoleTextColor color, string message)
+    {
+        lock (_gate)
+        {
+            context.WriteLine(color, message);
         }
     }
 

@@ -45,7 +45,28 @@ Write-Output "Package (WSL): $wslPkg"
 Write-Output "Extract + install (sudo may prompt in this window) ..."
 
 $remoteDir = "/tmp/taskrunner-install"
-$cmd = "rm -rf '$remoteDir' && mkdir -p '$remoteDir' && tar -xzf '$wslPkg' -C '$remoteDir' && sudo bash '$remoteDir/deploy/install.sh'"
+$remoteTar = "/tmp/taskrunner-pkg.tar.gz"
+# 9P(/mnt/c) 读取偶发陈旧内容：先复制进 WSL 本地文件系统并做 SHA256 校验，不一致重试一次，仍不一致则中止
+$expectedHash = (Get-FileHash -Algorithm SHA256 -Path $packagePath).Hash.ToLowerInvariant()
+
+$cmd = @"
+set -e
+rm -rf '$remoteDir' && mkdir -p '$remoteDir'
+cp '$wslPkg' '$remoteTar'
+actual=`$(sha256sum '$remoteTar' | cut -d' ' -f1)
+if [ "`$actual" != "$expectedHash" ]; then
+  sleep 1
+  cp '$wslPkg' '$remoteTar'
+  actual=`$(sha256sum '$remoteTar' | cut -d' ' -f1)
+fi
+if [ "`$actual" != "$expectedHash" ]; then
+  echo "Package hash mismatch after copy: `$actual != $expectedHash" >&2
+  exit 1
+fi
+tar -xzf '$remoteTar' -C '$remoteDir'
+rm -f '$remoteTar'
+sudo bash '$remoteDir/deploy/install.sh'
+"@
 wsl -d $Distro -- bash -lc $cmd
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

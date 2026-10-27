@@ -10,349 +10,168 @@
             "data-theme",
             localStorage.getItem("tr-theme") === "dark" ? "dark" : "light");
     </script>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
     <style>
-        /* 双主题 token（与首页一致）：
-           light = LeptonX Light，dark = Linear */
-        :root {
-            --radius: 8px;
-            --radius-lg: 9px;
-        }
+        /* 与 Hangfire Dashboard 同款（Bootstrap 3.3 + hangfire.css）：
+           light = Hangfire 经典（navbar #222 / 链接 #337ab7 / 成功 #5cb85c）
+           dark  = Hangfire 1.8 官方暗色（#22272e 画布 + #2d333b 浮层 + #4d4d4d 边线） */
+        :root { --radius: 4px; }
 
         html[data-theme="light"] {
             color-scheme: light;
-            --body-bg: #f8f9fa;
-            --card-bg: #ffffff;
-            --border-color: #e8eef3;
-            --hover-border: #aebeff;
-            --body-color: #325168;
-            --body-secondary-color: rgba(50, 81, 104, 0.75);
-            --body-tertiary-color: rgba(50, 81, 104, 0.55);
-            --primary: #355dff;
-            --primary-hover: #2a4ae6;
-            --primary-bg-subtle: #d7deff;
-            --primary-border-subtle: #aebeff;
-            --mark-bg: linear-gradient(120deg, #6c5dd3 0%, #355dff 100%);
-            --brand-gradient: linear-gradient(120deg, #6c5dd3 0%, #355dff 100%);
-            --chip-bg: #d7deff;
-            --chip-ink: #355dff;
-            --danger: #c00d49;
-            --shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-            --shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-            --focus-ring: rgba(53, 93, 255, 0.12);
-            --foot-bg: #ffffff;
+            --body-bg: #fff; --text: #333; --text-secondary: #777; --text-muted: #999;
+            --border: #ddd; --border-light: #eee;
+            --link: #337ab7; --link-hover: #23527c;
+            --navbar-bg: #222; --navbar-border: #080808;
+            --navbar-ink: #9d9d9d; --navbar-ink-hover: #fff; --navbar-active-bg: #080808;
+            --btn-bg: #fff; --btn-border: #ccc; --btn-ink: #333;
+            --btn-hover-bg: #e6e6e6; --btn-hover-border: #adadad;
+            --input-bg: #fff; --input-ink: #555; --input-border: #ccc;
+            --input-focus-border: #66afe9; --input-focus-ring: rgba(102, 175, 233, 0.6);
+            --alert-danger-bg: #f2dede; --alert-danger-border: #ebccd1; --alert-danger-ink: #a94442;
+            --footer-bg: #f5f5f5; --code-bg: #f9f2f4; --code-ink: #c7254e;
         }
 
         html[data-theme="dark"] {
             color-scheme: dark;
-            --body-bg: #010102;
-            --card-bg: #0f1011;
-            --border-color: #23252a;
-            --hover-border: #34343a;
-            --body-color: #f7f8f8;
-            --body-secondary-color: #d0d6e0;
-            --body-tertiary-color: #8a8f98;
-            --primary: #5e6ad2;
-            --primary-hover: #828fff;
-            --primary-bg-subtle: rgba(94, 106, 210, 0.16);
-            --primary-border-subtle: rgba(94, 106, 210, 0.45);
-            --mark-bg: #5e6ad2;
-            --chip-bg: rgba(94, 106, 210, 0.16);
-            --chip-ink: #828fff;
-            --danger: #eb5757;
-            --shadow-sm: none;
-            --shadow: none;
-            --focus-ring: rgba(94, 106, 210, 0.25);
-            --foot-bg: #010102;
-            --radius-lg: 12px;
+            --body-bg: #22272e; --text: #adbac7; --text-secondary: rgba(255, 255, 255, 0.6); --text-muted: rgba(255, 255, 255, 0.45);
+            --border: #4d4d4d; --border-light: #4d4d4d;
+            --link: #539bf5; --link-hover: #539bf5;
+            --navbar-bg: #2d333b; --navbar-border: transparent;
+            --navbar-ink: rgba(255, 255, 255, 0.6); --navbar-ink-hover: #fff; --navbar-active-bg: #373e47;
+            --btn-bg: #2d333b; --btn-border: #4d4d4d; --btn-ink: rgba(255, 255, 255, 0.9);
+            --btn-hover-bg: #373e47; --btn-hover-border: #4d4d4d;
+            --input-bg: #22272e; --input-ink: #adbac7; --input-border: #4d4d4d;
+            --input-focus-border: #539bf5; --input-focus-ring: rgba(83, 155, 245, 0.35);
+            --alert-danger-bg: rgba(215, 58, 74, 0.1); --alert-danger-border: rgba(235, 156, 166, 0.3); --alert-danger-ink: rgb(235, 156, 166);
+            --footer-bg: #2d333b; --code-bg: #2d333b; --code-ink: #f97583;
         }
 
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
-        html {
-            background: var(--body-bg);
-        }
+        html, body { height: 100%; }
 
         body {
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            background: var(--body-bg);
-            color: var(--body-color);
-            font-family: "Inter", -apple-system, "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
-            font-size: 14px;
-            -webkit-font-smoothing: antialiased;
+            margin: 0; padding-top: 75px;
+            background: var(--body-bg); color: var(--text);
+            font-family: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+            font-size: 14px; line-height: 1.42857143;
         }
 
-        [hidden] {
-            display: none !important;
+        a { color: var(--link); text-decoration: none; }
+        a:hover { color: var(--link-hover); text-decoration: underline; }
+
+        code {
+            padding: 2px 4px; font-size: 90%; color: var(--code-ink);
+            background-color: var(--code-bg); border-radius: var(--radius);
+            font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
         }
 
-        :focus-visible {
-            outline: 2px solid var(--primary-border-subtle);
-            outline-offset: 2px;
-        }
+        .container { padding-left: 25px; padding-right: 25px; }
+        #wrap { min-height: 100%; height: auto; margin: 0 auto -60px; padding: 0 0 60px; }
+        #footer { background-color: var(--footer-bg); }
+        .credit { margin: 20px 0; word-break: break-word; color: var(--text-secondary); text-align: center; }
 
-        .top-strip {
-            height: 3px;
-            background: var(--brand-gradient, transparent);
+        /* 顶栏 */
+        .navbar { min-height: 50px; border: 1px solid transparent; }
+        .navbar-fixed-top { position: fixed; top: 0; left: 0; right: 0; z-index: 1030; border-width: 0 0 1px; }
+        .navbar-inverse { background-color: var(--navbar-bg); border-color: var(--navbar-border); }
+        .navbar .container { display: flex; align-items: center; }
+        .navbar-header { flex: none; }
+        .navbar-brand {
+            display: block; height: 50px; padding: 15px; font-size: 18px; line-height: 20px;
+            color: var(--navbar-ink);
         }
-
-        html[data-theme="dark"] .top-strip {
-            display: none;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 1120px;
-            margin: 0 auto;
-            padding: 0 24px;
-        }
-
-        .nav-inner {
-            height: 56px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .wordmark {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 15px;
-            font-weight: 700;
-            letter-spacing: -0.2px;
-            color: var(--body-color);
-            text-decoration: none;
-        }
-
-        .wordmark .mark {
-            width: 24px;
-            height: 24px;
-            border-radius: 6px;
-            background: var(--mark-bg);
-            color: #fff;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .nav-spacer {
-            flex: 1;
-        }
-
+        .navbar-brand:hover { color: var(--navbar-ink-hover); text-decoration: none; }
         .theme-toggle {
-            width: 34px;
-            height: 34px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius);
-            color: var(--body-secondary-color);
-            font-size: 14px;
-            cursor: pointer;
-            transition: border-color 0.15s ease, color 0.15s ease;
+            flex: none; height: 34px; margin: 8px 0 8px auto; padding: 5px 10px;
+            background: transparent; border: 1px solid var(--navbar-border);
+            border-radius: var(--radius); color: var(--navbar-ink);
+            font-size: 12px; cursor: pointer; font-family: inherit;
+        }
+        .theme-toggle:hover { color: var(--navbar-ink-hover); }
+
+        .page-header { padding-bottom: 9px; margin: 20px 0 10px; border-bottom: 1px solid var(--border-light); }
+        .page-header h1 {
+            margin: 0; font-size: 36px; font-weight: 500; overflow: hidden;
+            white-space: nowrap; text-overflow: ellipsis;
         }
 
-            .theme-toggle:hover {
-                border-color: var(--hover-border);
-                color: var(--primary);
-            }
-
-        main {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 48px 24px;
+        .form-group { margin-bottom: 15px; }
+        label { display: inline-block; margin-bottom: 5px; font-weight: 700; }
+        .form-control {
+            display: block; width: 100%; padding: 6px 12px; font-size: 14px; line-height: 1.42857143;
+            color: var(--input-ink); background-color: var(--input-bg);
+            border: 1px solid var(--input-border); border-radius: var(--radius);
+            box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075); font-family: inherit;
+        }
+        .form-control:focus {
+            border-color: var(--input-focus-border); outline: 0;
+            box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 8px var(--input-focus-ring);
         }
 
-        .card {
-            width: 100%;
-            max-width: 400px;
-            background: var(--card-bg);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-sm);
-            padding: 32px;
-        }
+        .help-block { display: block; margin: 5px 0 0; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
 
-        html[data-theme="dark"] .card {
-            border: 1px solid var(--border-color);
-        }
-
-        .card .head {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 8px;
-        }
-
-        .card .head .mark {
-            width: 36px;
-            height: 36px;
-            border-radius: 9px;
-            background: var(--mark-bg);
-            color: #fff;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .card h1 {
-            margin: 0;
-            font-size: 20px;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-        }
-
-        .card .sub {
-            margin: 0 0 24px;
-            font-size: 13px;
-            line-height: 1.5;
-            color: var(--body-secondary-color);
-        }
-
-        label {
-            display: block;
-            font-size: 13px;
-            font-weight: 500;
-            margin-bottom: 6px;
-        }
-
-        input[type="password"] {
-            width: 100%;
-            height: 42px;
-            padding: 8px 12px;
-            font: inherit;
-            color: var(--body-color);
-            background: var(--body-bg);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius);
-            transition: border-color 0.15s ease;
-        }
-
-            input[type="password"]:focus {
-                outline: none;
-                border-color: var(--primary-border-subtle);
-                box-shadow: 0 0 0 3px var(--focus-ring);
-            }
-
-        .field-hint {
-            margin: 8px 0 0;
-            font-size: 12px;
-            line-height: 1.5;
-            color: var(--body-tertiary-color);
-        }
-
-            .field-hint code {
-                font-size: 11px;
-                background: var(--chip-bg);
-                border-radius: 4px;
-                padding: 1px 5px;
-                color: var(--chip-ink);
-            }
-
-        .error {
-            margin: 12px 0 0;
-            font-size: 13px;
-            color: var(--danger);
-            min-height: 1.4em;
-        }
+        .alert { padding: 15px; margin-bottom: 20px; border: 1px solid transparent; border-radius: var(--radius); }
+        .alert-danger { color: var(--alert-danger-ink); background-color: var(--alert-danger-bg); border-color: var(--alert-danger-border); }
 
         .btn {
-            width: 100%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            margin-top: 20px;
-            font-size: 14px;
-            font-weight: 600;
-            line-height: 1.2;
-            padding: 10px 18px;
-            border-radius: var(--radius);
-            border: 1px solid transparent;
-            background: var(--primary);
-            color: #fff;
-            box-shadow: var(--shadow-sm);
-            cursor: pointer;
-            min-height: 42px;
-            transition: background 0.15s ease;
+            display: inline-block; padding: 6px 12px; font-size: 14px; font-weight: 400;
+            line-height: 1.42857143; text-align: center; white-space: nowrap; vertical-align: middle;
+            cursor: pointer; user-select: none; border: 1px solid transparent; border-radius: var(--radius);
+            font-family: inherit; text-decoration: none;
         }
+        .btn-primary { color: #fff; background-color: #337ab7; border-color: #2e6da4; }
+        .btn-primary:hover { color: #fff; filter: brightness(0.92); }
+        .btn-block { display: block; width: 100%; }
+        .btn[disabled] { opacity: 0.65; cursor: not-allowed; }
 
-            .btn:hover {
-                background: var(--primary-hover);
-            }
-
-            .btn[disabled] {
-                opacity: 0.65;
-                cursor: not-allowed;
-            }
-
-        .foot {
-            border-top: 1px solid var(--border-color);
-            background: var(--foot-bg);
-            padding: 16px 0;
-            font-size: 12px;
-            color: var(--body-tertiary-color);
-            text-align: center;
-        }
-
-            .foot a {
-                color: var(--body-secondary-color);
-            }
-
-                .foot a:hover {
-                    color: var(--primary);
-                }
+        .login-box { max-width: 400px; margin: 40px auto 0; }
     </style>
 </head>
 <body>
-    <div class="top-strip"></div>
-    <header>
-        <div class="container nav-inner">
-            <a class="wordmark" href="/"><span class="mark">▸</span>TaskRunner</a>
-            <span class="nav-spacer"></span>
-            <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换亮暗主题">☾</button>
-        </div>
-    </header>
-
-    <main>
-        <form class="card" id="login-form">
-            <div class="head">
-                <span class="mark">▸</span>
-                <h1>管理员登录</h1>
+    <div id="wrap">
+        <div class="navbar navbar-inverse navbar-fixed-top">
+            <div class="container">
+                <div class="navbar-header">
+                    <a class="navbar-brand" href="/">TaskRunner</a>
+                </div>
+                <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换亮暗主题">☾ 主题</button>
             </div>
-            <p class="sub">登录后签发加密会话 Cookie（不含密钥明文），Dashboard 与运维接口在本浏览器内免弹窗访问。</p>
-            <label for="api-key">管理员密钥</label>
-            <input type="password" id="api-key" name="apiKey" autocomplete="current-password" autofocus required />
-            <p class="field-hint">即生产配置 <code>Hangfire:AdminApiKey</code>（服务器上位于 <code>/etc/default/taskrunner</code>）。</p>
-            <p class="error" id="error" aria-live="polite"></p>
-            <button class="btn" type="submit" id="submit">登录并打开 Dashboard</button>
-        </form>
-    </main>
+        </div>
 
-    <footer class="foot">
-        <a href="/">← 返回首页</a>
-    </footer>
+        <div class="container">
+            <div class="login-box">
+                <div class="page-header">
+                    <h1>管理员登录</h1>
+                </div>
+                <p style="color:var(--text-secondary)">
+                    登录后签发加密会话 Cookie（不含密钥明文），Dashboard 与运维接口在本浏览器内免弹窗访问。
+                </p>
+
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="api-key">管理员密钥</label>
+                        <input type="password" id="api-key" name="apiKey" class="form-control" autocomplete="current-password" autofocus required />
+                        <span class="help-block">即生产配置 <code>Hangfire:AdminApiKey</code>（服务器上位于 <code>/etc/default/taskrunner</code>）。</span>
+                    </div>
+                    <p class="alert alert-danger" id="error" aria-live="polite" hidden></p>
+                    <button class="btn btn-primary btn-block" type="submit" id="submit">登录并打开 Dashboard</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="footer">
+        <div class="container">
+            <div class="credit"><a href="/">← 返回首页</a></div>
+        </div>
+    </div>
 
     <script>
         (function () {
             const toggle = document.getElementById("theme-toggle");
             const syncIcon = () => {
-                toggle.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀" : "☾";
+                toggle.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀ 主题" : "☾ 主题";
             };
             toggle.addEventListener("click", () => {
                 const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
@@ -369,16 +188,21 @@
             const button = document.getElementById("submit");
             const error = document.getElementById("error");
 
+            function showError(text) {
+                error.textContent = text;
+                error.hidden = !text;
+            }
+
             form.addEventListener("submit", async (event) => {
                 event.preventDefault();
                 const apiKey = input.value.trim();
                 if (!apiKey) {
-                    error.textContent = "请输入管理员密钥。";
+                    showError("请输入管理员密钥。");
                     return;
                 }
                 button.disabled = true;
                 button.textContent = "登录中…";
-                error.textContent = "";
+                showError("");
                 try {
                     const res = await fetch("/api/auth/login", {
                         method: "POST",
@@ -389,9 +213,9 @@
                         location.href = "/taskrunner";
                         return;
                     }
-                    error.textContent = res.status === 401 ? "密钥无效，请核对后重试。" : "登录失败（HTTP " + res.status + "）。";
+                    showError(res.status === 401 ? "密钥无效，请核对后重试。" : "登录失败（HTTP " + res.status + "）。");
                 } catch (err) {
-                    error.textContent = "网络错误：" + (err.message || "未知异常");
+                    showError("网络错误：" + (err.message || "未知异常"));
                 } finally {
                     button.disabled = false;
                     button.textContent = "登录并打开 Dashboard";

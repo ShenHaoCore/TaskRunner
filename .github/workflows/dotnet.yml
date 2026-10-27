@@ -55,6 +55,7 @@ jobs:
           dotnet publish src/${{ matrix.project }}/${{ matrix.project }}.csproj
           -c Release -r ${{ matrix.rid }} --self-contained true
           -p:PublishSingleFile=true
+          -p:InformationalVersion=${GITHUB_REF_NAME#v}
           -o publish/${{ matrix.project }}-${{ matrix.rid }}
 
       - name: Package
