@@ -85,6 +85,7 @@ sudo nano /etc/default/taskrunner
 | `Hangfire__WorkerCount` | 可选 | Worker 并发数，默认 5 |
 | `Hangfire__Queues__0` 等 | 可选 | Worker 订阅队列（默认仅 `default`）。任务声明了其它队列时，须在此列出，否则会积压 |
 | `Hangfire__CookieSecure` | 可选 | TLS 反代部署置 `true`（管理员 Cookie 仅经 HTTPS 传输），默认 `false` 兼容本机 http |
+| `Hangfire__HeartbeatPingUrl` | 可选 | 心跳死信开关：配置后心跳成功即 POST 该地址（如 healthchecks.io 的 check URL），失败计入重试/Failed；外部服务「未按时收到 ping」即告警。留空不 ping |
 
 启动并验证：
 
@@ -98,7 +99,7 @@ curl -H "X-TaskRunner-Admin: <你的密钥>" http://127.0.0.1:5088/api/tasks
 
 配置优先级（低 → 高）：`appsettings.json`（公共默认，源 `src/appsettings.json`）→ 环境变量 `/etc/default/taskrunner`（密钥与连接串、以及生产差异如 Worker 数等）。
 本地开发用 User Secrets（见 README），不要改仓库里的连接串。改完 EnvironmentFile 需 `systemctl restart` 才生效。
-实例当前环境可通过 `/info` 的 `environment` 字段确认（首页导航徽章同步显示）。
+实例当前环境与版本可通过 `/info` 的 `environment`、`version` 字段确认（首页页脚同步显示版本；`version` 由发布流水线随 tag 注入程序集）。
 
 ### 多机：包相同，只改本机 env
 
@@ -129,6 +130,15 @@ server {
     listen 80;
     server_name tasks.example.com;
 
+    # 安全响应头。CSP 放开内联脚本/样式：Hangfire Dashboard 与自定义页面需要；
+    # 所有页面均为同源静态资源、无外链 CDN，可安全收紧
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+    # TLS 部署（listen 443）建议再加 HSTS：
+    # add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
     location / {
         proxy_pass         http://127.0.0.1:5088;
         proxy_set_header   Host $host;
@@ -137,6 +147,30 @@ server {
     }
 }
 ```
+
+> 若 nginx 报 `duplicate MIME type` 或页面白屏，优先排查 CSP（先临时去掉 CSP 头确认，再按浏览器控制台提示放行）。
+
+## PostgreSQL 备份（建议）
+
+数据集中在单一 PG 库 `taskrunner`，给它配个每日定时备份即可。准备备份目录：
+
+```bash
+sudo mkdir -p /var/backups/taskrunner && sudo chown postgres: /var/backups/taskrunner
+```
+
+`crontab -e`（root 或 postgres）加一行，每天 03:30 备份并保留 14 天：
+
+```bash
+30 3 * * * pg_dump -h 127.0.0.1 -U taskrunner -d taskrunner -Fc -f /var/backups/taskrunner/taskrunner-$(date +\%F).dump && find /var/backups/taskrunner -name 'taskrunner-*.dump' -mtime +14 -delete
+```
+
+恢复（新机重建或回滚场景）：
+
+```bash
+pg_restore -h 127.0.0.1 -U taskrunner -d taskrunner --clean --if-exists /var/backups/taskrunner/taskrunner-2026-10-28.dump
+```
+
+> `-Fc` 为 PG 自定义压缩格式，体积小且支持单表挑选恢复。crontab 里 `%` 必须写成 `\%`；密码不要写进 crontab，用 `~/.pgpass`（权限 0600）管理。
 
 ## 升级与回滚
 

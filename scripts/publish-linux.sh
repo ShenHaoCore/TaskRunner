@@ -48,6 +48,7 @@ for project in TaskRunner.Api TaskRunner.Worker; do
     -c Release -r linux-x64 \
     --self-contained "${SELF_CONTAINED}" \
     -p:PublishSingleFile="${SINGLE_FILE}" \
+    -p:InformationalVersion="${VERSION}" \
     -o "${project_out}"
 done
 
