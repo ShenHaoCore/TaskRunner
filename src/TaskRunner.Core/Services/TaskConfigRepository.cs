@@ -26,7 +26,7 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
 {
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
-        // 迁移按 SQL Server 生成；测试使用 SQLite 提供程序，模型存在跨提供程序差异，走 EnsureCreated。
+        // 生产 / 开发：PostgreSQL 走 EF 迁移。测试：SQLite 与迁移模型有提供程序差异，改 EnsureCreated。
         if (string.Equals(db.Database.ProviderName, "Microsoft.EntityFrameworkCore.Sqlite", StringComparison.Ordinal))
         {
             await db.Database.EnsureCreatedAsync(cancellationToken);

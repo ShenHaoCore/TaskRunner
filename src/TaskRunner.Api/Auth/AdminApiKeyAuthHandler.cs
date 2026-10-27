@@ -1,6 +1,6 @@
-using System.Text.Encodings.Web;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using TaskRunner.Core.Common;
@@ -10,6 +10,7 @@ namespace TaskRunner.Api.Auth;
 public static class AdminAuthDefaults
 {
     public const string Scheme = "TaskRunnerAdmin";
+    public const string CookieScheme = CookieAuthenticationDefaults.AuthenticationScheme;
     public const string Policy = "TaskRunnerAdmin";
     public const string Role = "Admin";
     public const string HeaderName = "X-TaskRunner-Admin";
@@ -20,7 +21,7 @@ public static class AdminAuthDefaults
 public sealed class AdminApiKeyAuthHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
-    UrlEncoder encoder,
+    System.Text.Encodings.Web.UrlEncoder encoder,
     IOptions<TaskRunnerOptions> hangfireOptions,
     IHostEnvironment environment) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
@@ -28,7 +29,8 @@ public sealed class AdminApiKeyAuthHandler(
     {
         if (environment.IsDevelopment())
         {
-            return Task.FromResult(AuthenticateResult.Success(AdminCredentials.CreateTicket("development")));
+            return Task.FromResult(AuthenticateResult.Success(
+                AdminCredentials.CreateTicket("development", AdminAuthDefaults.Scheme)));
         }
 
         var configured = hangfireOptions.Value.AdminApiKey;
@@ -42,10 +44,9 @@ public sealed class AdminApiKeyAuthHandler(
             return Task.FromResult(AuthenticateResult.NoResult());
         }
 
-        var identity = Request.Headers.ContainsKey(AdminAuthDefaults.HeaderName) ? "header"
-            : Request.Cookies.ContainsKey(AdminAuthDefaults.CookieName) ? "cookie"
-            : "basic";
-        return Task.FromResult(AuthenticateResult.Success(AdminCredentials.CreateTicket(identity)));
+        var identity = Request.Headers.ContainsKey(AdminAuthDefaults.HeaderName) ? "header" : "basic";
+        return Task.FromResult(AuthenticateResult.Success(
+            AdminCredentials.CreateTicket(identity, AdminAuthDefaults.Scheme)));
     }
 }
 
@@ -53,14 +54,49 @@ public static class AdminAuthServiceCollectionExtensions
 {
     public static IServiceCollection AddTaskRunnerAdminAuth(this IServiceCollection services)
     {
-        services.AddAuthentication(AdminAuthDefaults.Scheme)
+        services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = AdminAuthDefaults.CookieScheme;
+                options.DefaultSignInScheme = AdminAuthDefaults.CookieScheme;
+                options.DefaultChallengeScheme = AdminAuthDefaults.Scheme;
+            })
+            .AddCookie(AdminAuthDefaults.CookieScheme, options =>
+            {
+                options.Cookie.Name = AdminAuthDefaults.CookieName;
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SameSite = SameSiteMode.Lax;
+                options.Cookie.Path = "/";
+                options.SlidingExpiration = true;
+                options.ExpireTimeSpan = TimeSpan.FromDays(7);
+                options.Events = new CookieAuthenticationEvents
+                {
+                    OnRedirectToLogin = context =>
+                    {
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        return Task.CompletedTask;
+                    },
+                    OnRedirectToAccessDenied = context =>
+                    {
+                        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        return Task.CompletedTask;
+                    }
+                };
+            })
             .AddScheme<AuthenticationSchemeOptions, AdminApiKeyAuthHandler>(AdminAuthDefaults.Scheme, _ => { });
+
+        services.AddOptions<CookieAuthenticationOptions>(AdminAuthDefaults.CookieScheme)
+            .Configure<IOptions<TaskRunnerOptions>>((options, hangfire) =>
+            {
+                options.Cookie.SecurePolicy = hangfire.Value.CookieSecure
+                    ? CookieSecurePolicy.Always
+                    : CookieSecurePolicy.SameAsRequest;
+            });
 
         services.AddAuthorization(options =>
         {
             options.AddPolicy(AdminAuthDefaults.Policy, policy =>
             {
-                policy.AddAuthenticationSchemes(AdminAuthDefaults.Scheme);
+                policy.AddAuthenticationSchemes(AdminAuthDefaults.CookieScheme, AdminAuthDefaults.Scheme);
                 policy.RequireRole(AdminAuthDefaults.Role);
             });
         });

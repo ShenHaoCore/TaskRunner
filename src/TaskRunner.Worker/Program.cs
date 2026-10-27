@@ -6,14 +6,12 @@ using TaskRunner.Hangfire;
 
 var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { Args = args, ContentRootPath = AppContext.BaseDirectory });
 builder.Configuration.AddSharedConfiguration(builder.Environment.EnvironmentName);
+AppPaths.AbsolutizeSerilogFilePaths(builder.Configuration);
 
 builder.Services.AddWindowsService(options => { options.ServiceName = "TaskRunner.Worker"; });
 // Linux systemd 部署（Type=notify）；非对应环境两者均为 no-op。
 builder.Services.AddSystemd();
 builder.Services.AddSerilog((services, configuration) => configuration.ReadFrom.Configuration(builder.Configuration).ReadFrom.Services(services).Enrich.FromLogContext().Enrich.WithProperty("Application", "TaskRunner.Worker"));
-
-var logRoot = AppPaths.FindSolutionRoot(builder.Environment.ContentRootPath) ?? builder.Environment.ContentRootPath;
-Directory.SetCurrentDirectory(logRoot);
 
 builder.Services.AddTaskRunnerCore(builder.Configuration);
 builder.Services.AddTaskRunnerHangfire(builder.Configuration, HangfireHostRole.Server);

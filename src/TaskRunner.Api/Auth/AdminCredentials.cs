@@ -24,6 +24,7 @@ public static class AdminCredentials
         return TryMatchRequest(http.Request, options.AdminApiKey);
     }
 
+    /// <summary>仅 Header / Basic（Cookie 走 Cookie Authentication 会话票据，不再比对密钥明文）。</summary>
     public static bool TryMatchRequest(HttpRequest request, string? adminApiKey)
     {
         if (string.IsNullOrEmpty(adminApiKey))
@@ -33,12 +34,6 @@ public static class AdminCredentials
 
         if (request.Headers.TryGetValue(AdminAuthDefaults.HeaderName, out var header)
             && MatchesKey(header.ToString(), adminApiKey))
-        {
-            return true;
-        }
-
-        if (request.Cookies.TryGetValue(AdminAuthDefaults.CookieName, out var cookie)
-            && MatchesKey(cookie, adminApiKey))
         {
             return true;
         }
@@ -67,22 +62,37 @@ public static class AdminCredentials
         }
     }
 
-    /// <summary>恒定时间比较，防时序侧信道；长度不同立即 false（泄露长度可接受）。</summary>
+    /// <summary>恒定时间比较；长度不同立即 false（避免 FixedTimeEquals 抛异常）。</summary>
     public static bool MatchesKey(string candidate, string adminApiKey)
     {
         var left = Encoding.UTF8.GetBytes(candidate);
         var right = Encoding.UTF8.GetBytes(adminApiKey);
+        if (left.Length != right.Length)
+        {
+            return false;
+        }
+
         return CryptographicOperations.FixedTimeEquals(left, right);
     }
 
-    public static AuthenticationTicket CreateTicket(string identity)
+    public static AuthenticationTicket CreateTicket(string identity, string authenticationType)
     {
         var claims = new[]
         {
             new Claim(ClaimTypes.Name, identity),
             new Claim(ClaimTypes.Role, AdminAuthDefaults.Role)
         };
-        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, AdminAuthDefaults.Scheme));
-        return new AuthenticationTicket(principal, AdminAuthDefaults.Scheme);
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, authenticationType));
+        return new AuthenticationTicket(principal, authenticationType);
+    }
+
+    public static ClaimsPrincipal CreatePrincipal(string identity, string authenticationType)
+    {
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.Name, identity),
+            new Claim(ClaimTypes.Role, AdminAuthDefaults.Role)
+        };
+        return new ClaimsPrincipal(new ClaimsIdentity(claims, authenticationType));
     }
 }
