@@ -63,6 +63,7 @@ sudo nano /etc/default/taskrunner
 | `ASPNETCORE_URLS` | 可选 | 默认 `http://127.0.0.1:5088`（仅本机，建议配 nginx 反代；要公网直连改 `http://0.0.0.0:5088`） |
 | `Hangfire__ReadOnlyMode` | 可选 | `true` 时所有写操作（含 Dashboard）被拦截，适合灾备只读实例 |
 | `Hangfire__WorkerCount` | 可选 | Worker 并发数，默认 5 |
+| `Hangfire__CookieSecure` | 可选 | TLS 反代部署置 `true`（管理员 Cookie 仅经 HTTPS 传输），默认 `false` 兼容本机 http |
 
 启动并验证：
 
@@ -74,10 +75,8 @@ curl -H "X-TaskRunner-Admin: <你的密钥>" http://127.0.0.1:5088/api/tasks
 
 ## 配置的环境区分
 
-配置优先级（低 → 高）：`appsettings.shared.json`（公共默认）→ `appsettings.Production.json`
-（源 `src/appsettings.Production.shared.json`，随包分发，放非敏感的固定差异，如心跳开关、Worker 数）
-→ 环境变量 `/etc/default/taskrunner`（最高，放密钥与连接串）。
-开发环境对应层为 `appsettings.Development.json`。改完任一层都需要重启服务生效。
+配置优先级（低 → 高）：`appsettings.json`（公共默认，源 `src/appsettings.json`）→ 环境变量 `/etc/default/taskrunner`（密钥与连接串、以及生产差异如 Worker 数等）。
+本地开发另有 `appsettings.Development.json`。改完任一层都需要重启服务生效。
 实例当前环境可通过 `/info` 的 `environment` 字段确认（首页导航徽章同步显示）。
 
 ## 日志
@@ -122,3 +121,4 @@ sudo bash /tmp/taskrunner/deploy/install.sh
 - **`systemctl start` 超时后服务标记 failed**：包是旧版产物、不支持 `Type=notify`。用 `sudo TASKRUNNER_SERVICE_TYPE=simple bash ./deploy/install.sh` 重装，或换新包。
 - **数据库连不上**：确认连接串、PG 的 `pg_hba.conf`/监听地址；本机未装 PG 时 `postgresql.service` 的排序不生效，属正常。
 - **改了配置没生效**：EnvironmentFile 只在服务启动时读取，改完必须 `systemctl restart`。
+- **首次部署 Worker 启动报迁移冲突**：极小概率（Api/Worker 同时首启都在跑迁移），重试一次即自愈；Worker 单元已排序在 Api 之后，正常不会再出现。

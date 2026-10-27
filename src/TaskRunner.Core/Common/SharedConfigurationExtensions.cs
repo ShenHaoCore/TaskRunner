@@ -7,35 +7,23 @@ namespace TaskRunner.Core.Common;
 public static class SharedConfigurationExtensions
 {
     /// <summary>
-    /// 加载两个宿主（Api/Worker）共享的 JSON 配置。文件以链接方式复制到输出目录，
-    /// 因此统一从 <see cref="AppContext.BaseDirectory"/> 读取；优先级低于各项目自带
-    /// appsettings.json、环境变量与命令行参数。
+    /// 加载 Api/Worker 共享的 JSON 配置（源文件在 <c>src/appsettings*.json</c>，构建时复制到输出目录）。
+    /// 替换宿主默认的 ContentRoot JSON 源，统一从 <see cref="AppContext.BaseDirectory"/> 读取；
+    /// 优先级仍低于环境变量与命令行参数。
     /// </summary>
     public static IConfigurationBuilder AddSharedConfiguration(this IConfigurationBuilder configuration, string environmentName)
     {
-        // 共享基础配置：插到第一个 JSON 源之前（最低 JSON 优先级）。
-        var firstJson = IndexOfJsonSource(configuration.Sources, first: true);
-        configuration.Sources.Insert(firstJson, CreateSource("appsettings.shared.json", optional: false));
-
-        // 共享环境配置：插到最后一个 JSON 源之后（可覆盖基础 appsettings.json）。
-        var lastJson = IndexOfJsonSource(configuration.Sources, first: false);
-        configuration.Sources.Insert(lastJson + 1, CreateSource($"appsettings.{environmentName}.json", optional: true));
-        return configuration;
-    }
-
-    private static int IndexOfJsonSource(IList<IConfigurationSource> sources, bool first)
-    {
-        for (var i = 0; i < sources.Count; i++)
+        for (var i = configuration.Sources.Count - 1; i >= 0; i--)
         {
-            var forwardIndex = first ? i : sources.Count - 1 - i;
-            if (sources[forwardIndex] is JsonConfigurationSource)
+            if (configuration.Sources[i] is JsonConfigurationSource)
             {
-                return forwardIndex;
+                configuration.Sources.RemoveAt(i);
             }
         }
 
-        // 没有默认 JSON 源时：基础配置放最前，环境配置放最后。
-        return first ? 0 : sources.Count - 1;
+        configuration.Sources.Insert(0, CreateSource("appsettings.json", optional: false));
+        configuration.Sources.Insert(1, CreateSource($"appsettings.{environmentName}.json", optional: true));
+        return configuration;
     }
 
     private static JsonConfigurationSource CreateSource(string fileName, bool optional) => new()

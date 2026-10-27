@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Serilog;
 using TaskRunner.Core;
 using TaskRunner.Core.Common;
@@ -18,6 +19,8 @@ builder.Services.AddTaskRunnerCore(builder.Configuration);
 builder.Services.AddTaskRunnerHangfire(builder.Configuration, HangfireHostRole.Server);
 
 var host = builder.Build();
-var storage = builder.Configuration.GetSection("Hangfire")["Storage"] ?? "SqlServer";
-host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("TaskRunner.Worker").LogInformation("TaskRunner Worker 已启动，角色=Server，存储={Storage}，不监听 HTTP。", storage);
+var hangfireOptions = host.Services.GetRequiredService<IOptions<TaskRunnerOptions>>().Value;
+host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("TaskRunner.Worker").LogInformation(
+    "TaskRunner Worker 已启动，角色=Server，存储={Storage}，不监听 HTTP。",
+    hangfireOptions.Storage);
 host.Run();

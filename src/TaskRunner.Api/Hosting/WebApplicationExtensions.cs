@@ -82,6 +82,7 @@ public static class WebApplicationExtensions
         });
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseRateLimiter();
 
         app.MapHangfireDashboard(dashboardPath, new DashboardOptions
         {

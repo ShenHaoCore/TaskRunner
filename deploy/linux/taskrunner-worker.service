@@ -1,7 +1,8 @@
 [Unit]
 Description=TaskRunner Worker (Hangfire Server)
 Wants=network-online.target
-After=network-online.target postgresql.service
+# 排在 Api 之后：首启迁移建表由 Api 先行完成，规避双进程同时迁移的竞态
+After=network-online.target postgresql.service taskrunner-api.service
 
 [Service]
 Type=notify

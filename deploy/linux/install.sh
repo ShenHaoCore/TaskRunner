@@ -75,6 +75,7 @@ Hangfire__AdminApiKey='CHANGE_ME'
 # ASPNETCORE_URLS='http://0.0.0.0:5088'
 # Hangfire__ReadOnlyMode='false'
 # Hangfire__WorkerCount='5'
+# Hangfire__CookieSecure='true'   # TLS 反代部署时置 true
 EOF
   chmod 600 "${DEFAULTS_FILE}"
   NEED_CONFIG=1

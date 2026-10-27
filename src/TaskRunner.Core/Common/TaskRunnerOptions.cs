@@ -27,6 +27,9 @@ public sealed class TaskRunnerOptions
     /// <summary>平台心跳任务（heartbeat，每分钟）开关；修改需改配置并重启。</summary>
     public bool HeartbeatEnabled { get; set; } = true;
 
+    /// <summary>管理员 Cookie 的 Secure 标记；TLS 反代部署时置 true，默认 false 兼容本机 http。修改需重启。</summary>
+    public bool CookieSecure { get; set; }
+
     public string NormalizeDashboardPath()
     {
         var path = string.IsNullOrWhiteSpace(DashboardPath) ? "/taskrunner" : DashboardPath.Trim();

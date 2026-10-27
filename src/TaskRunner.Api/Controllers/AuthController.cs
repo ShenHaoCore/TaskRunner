@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using TaskRunner.Api.Auth;
 using TaskRunner.Api.Contracts;
@@ -13,9 +14,10 @@ namespace TaskRunner.Api.Controllers;
 public sealed class AuthController(IOptions<TaskRunnerOptions> options, IHostEnvironment environment) : ControllerBase
 {
     [AllowAnonymous]
+    [EnableRateLimiting(AdminAuthDefaults.LoginRateLimitPolicy)]
     [HttpPost("login", Name = "AdminLogin")]
     [EndpointSummary("登录")]
-    [EndpointDescription("写入管理员 Cookie。")]
+    [EndpointDescription("写入管理员 Cookie。生产环境按 IP 限流（5 次/分钟，超出 429）。")]
     public ActionResult Login(AdminLoginRequest request)
     {
         if (environment.IsDevelopment())
@@ -25,7 +27,7 @@ public sealed class AuthController(IOptions<TaskRunnerOptions> options, IHostEnv
         }
 
         var key = options.Value.AdminApiKey;
-        if (string.IsNullOrEmpty(key) || !string.Equals(request.ApiKey, key, StringComparison.Ordinal))
+        if (string.IsNullOrEmpty(key) || !AdminCredentials.MatchesKey(request.ApiKey, key))
         {
             return Unauthorized(new { message = "ApiKey 无效。" });
         }
@@ -43,11 +45,11 @@ public sealed class AuthController(IOptions<TaskRunnerOptions> options, IHostEnv
         return Ok(new { message = "已退出。" });
     }
 
-    private static CookieOptions CreateCookieOptions() => new()
+    private CookieOptions CreateCookieOptions() => new()
     {
         HttpOnly = true,
         SameSite = SameSiteMode.Lax,
-        Secure = false,
+        Secure = options.Value.CookieSecure,
         Path = "/"
     };
 }

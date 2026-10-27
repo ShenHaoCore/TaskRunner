@@ -2,6 +2,29 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 3.3.0 - 2026-10-27
+
+### 升级到本版本要做什么
+
+- **配置文件布局变更**：公共默认改为 `src/appsettings.json`（构建时链接到 Api/Worker），已移除 `*.shared` 命名与 `appsettings.Production.json` 覆盖层；生产差异（含原生产 JSON 里的非敏感项）一律走环境变量（如 `/etc/default/taskrunner`）
+- **本地开发连接串**：不再写入仓库，需执行 `dotnet user-secrets set "ConnectionStrings:Default" "..."`（Api/Worker 共用 `UserSecretsId`，对 Api 设一次即可）；步骤见 README
+- **TLS 反代部署**：若管理员登录 Cookie 需带 Secure，配置 `Hangfire:CookieSecure=true` 并重启
+- 登录接口生产环境按 IP 限流（5 次/分钟，超出 429）；Development 不限
+- 重新安装/更新 Linux 单元后 Worker 会排在 Api 之后启动（规避双进程首启迁移竞态）
+
+### 新增
+
+- 安全加固：管理员登录接口按 IP 限流（5 次/分钟，超出 429；Development 不限），密钥比较改为恒定时间（防时序侧信道）；管理员 Cookie 新增 `Hangfire:CookieSecure`（TLS 反代部署置 true）
+- 部署：Worker systemd 单元排序在 Api 之后，规避双进程首启同时跑迁移的竞态
+- 测试：文档守卫（/scalar、/openapi）、/info 字段（environment/heartbeat）、登录限流、心跳目录开关的契约测试钉板
+
+### 变更
+
+- 配置收敛：共享配置改为标准命名 `src/appsettings.json` + `src/appsettings.Development.json`（Api/Worker 链接共享）；去掉 `*.shared` 命名、各项目空壳 `appsettings.json` 与生产 JSON 覆盖层，生产差异统一走环境变量
+- 本地开发连接串改为 User Secrets（Api/Worker 共用 `UserSecretsId`），不再写入仓库；Worker 启动日志改为读取 `TaskRunnerOptions.Storage`，去掉错误的 `SqlServer` 回退
+- CD：打 tag 发布时自动把 CHANGELOG 对应版本的「升级到本版本要做什么」写入 Release 说明顶部（原手工步骤移除）
+- 依赖机器人（Dependabot）目标分支由 main 改为 develop，并忽略 `Microsoft.*` / `Npgsql*` 的主版本跳变（9→10 需整体 TFM 迁移决策）——此前两者分叉导致 release 合并冲突
+
 ## 3.2.0 - 2026-10-27
 
 ### 升级到本版本要做什么

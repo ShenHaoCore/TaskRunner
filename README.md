@@ -9,11 +9,12 @@
 
 ```bash
 docker run -d --name taskrunner-pg -e POSTGRES_USER=taskrunner -e POSTGRES_PASSWORD=TaskRunner!2026 -e POSTGRES_DB=taskrunner -p 15432:5432 postgres:17
+dotnet user-secrets set "ConnectionStrings:Default" "Host=127.0.0.1;Port=15432;Database=taskrunner;Username=taskrunner;Password=TaskRunner!2026;" --project src/TaskRunner.Api
 dotnet test
 dotnet run --project src/TaskRunner.Api
 ```
 
-开发环境 Api 角色为 `Combined`，**不必**再开 Worker。
+`UserSecretsId` 与 Worker 共用，上面只需对 Api 设一次。开发环境 Api 角色为 `Combined`，**不必**再开 Worker。
 
 - 首页：http://localhost:5088
 - Dashboard：http://localhost:5088/taskrunner
@@ -48,7 +49,7 @@ Cron 支持 5/6 位。已存在任务的 Cron / 启用状态以 `TaskConfigs` �
 
 ## PostgreSQL / 生产
 
-只需一个数据库 `taskrunner` 与一个连接字符串 `ConnectionStrings:Default`：Hangfire 表位于同库的 `hangfire` schema，业务表 `TaskConfigs` 由 EF 迁移在启动时自动创建。公共默认配置集中在 `src/appsettings.shared.json`（Api/Worker 构建时链接共享），生产用环境变量或各项目自己的 `appsettings.json` 覆盖，并设置 `Hangfire:AdminApiKey`。成功作业默认保留 60 分钟（`SucceededJobExpirationMinutes`）。
+只需一个数据库 `taskrunner` 与一个连接字符串 `ConnectionStrings:Default`：Hangfire 表位于同库的 `hangfire` schema，业务表 `TaskConfigs` 由 EF 迁移在启动时自动创建。公共配置在 `src/appsettings.json`（Api/Worker 构建时链接共享）；本地连接串用 User Secrets（见上方），生产用环境变量覆盖并设置 `Hangfire:AdminApiKey`。成功作业默认保留 60 分钟（`SucceededJobExpirationMinutes`）。
 
 生产请单独运行 Worker（或安装 Windows 服务）：
 
@@ -65,6 +66,7 @@ Linux（Ubuntu）部署：打包 `./scripts/publish-linux.ps1`，服务器端 sy
 
 ```
 src/
+  appsettings.json / appsettings.Development.json  # Api/Worker 共享配置
   TaskRunner.Api/        # 开发 Combined；生产 Client + Dashboard + REST
   TaskRunner.Worker/     # 生产 Server（Windows 服务 / systemd）
   TaskRunner.Hangfire/   # Hangfire 装配 + Console
