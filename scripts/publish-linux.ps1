@@ -21,7 +21,7 @@ $singleFile = if ($FrameworkDependent) { "false" } else { "true" }
 foreach ($project in @("TaskRunner.Api", "TaskRunner.Worker")) {
     $projectOut = Join-Path $out ($project -replace "^TaskRunner\.", "").ToLower()
     Write-Output "Publishing $project (linux-x64, self-contained=$selfContained) to $projectOut ..."
-    dotnet publish (Join-Path $root "src\$project\$project.csproj") -c Release -r linux-x64 --self-contained $selfContained -p:PublishSingleFile=$singleFile -o $projectOut
+    dotnet publish (Join-Path $root "src\$project\$project.csproj") -c Release -r linux-x64 --self-contained $selfContained -p:PublishSingleFile=$singleFile -p:InformationalVersion=$version -o $projectOut
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 

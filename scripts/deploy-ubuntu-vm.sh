@@ -41,7 +41,21 @@ REMOTE_TAR="/tmp/${BASENAME}"
 REMOTE_DIR="/tmp/taskrunner-install"
 
 echo "==> 上传 ${PACKAGE_PATH} -> ${TARGET}:${REMOTE_TAR}"
+LOCAL_SHA="$(sha256sum "${PACKAGE_PATH}" | cut -d' ' -f1)"
 scp "${PACKAGE_PATH}" "${TARGET}:${REMOTE_TAR}"
+
+echo "==> 校验上传完整性（SHA256）"
+REMOTE_SHA="$(ssh "${TARGET}" "sha256sum '${REMOTE_TAR}' | cut -d' ' -f1" || true)"
+if [[ "${REMOTE_SHA}" != "${LOCAL_SHA}" ]]; then
+  echo "==> 校验不一致，重试上传一次"
+  scp "${PACKAGE_PATH}" "${TARGET}:${REMOTE_TAR}"
+  REMOTE_SHA="$(ssh "${TARGET}" "sha256sum '${REMOTE_TAR}' | cut -d' ' -f1" || true)"
+fi
+if [[ "${REMOTE_SHA}" != "${LOCAL_SHA}" ]]; then
+  echo "包哈希不一致：远端 ${REMOTE_SHA:-<empty>} != 本地 ${LOCAL_SHA}，中止安装" >&2
+  exit 1
+fi
+echo "==> SHA256 校验通过（${LOCAL_SHA:0:12}…）"
 
 echo "==> 远端解压并安装（需要 sudo）"
 ssh -t "${TARGET}" "rm -rf '${REMOTE_DIR}' && mkdir -p '${REMOTE_DIR}' && tar -xzf '${REMOTE_TAR}' -C '${REMOTE_DIR}' && sudo bash '${REMOTE_DIR}/deploy/install.sh'"

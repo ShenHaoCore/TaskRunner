@@ -43,6 +43,7 @@ public static class CoreServiceCollectionExtensions
         services.AddScoped<JobExecutor>();
         services.AddScoped<JobProgressContext>();
         services.AddTransient<IJobProgress>(sp => sp.GetRequiredService<JobProgressContext>().Current);
+        services.AddHttpClient(HeartbeatJob.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(10));
 
         foreach (var type in catalog.RecurringJobs.Select(job => job.ClrType).Distinct())
         {
