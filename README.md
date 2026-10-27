@@ -30,7 +30,7 @@ dotnet run --project src/TaskRunner.Api
 | 环境 | 行为 |
 |------|------|
 | Development | Dashboard / 写操作免密钥 |
-| Production | 配置 `Hangfire:AdminApiKey`；写 API 用头 `X-TaskRunner-Admin`，或 `/api/auth/login` 写 Cookie；Dashboard 可用 Basic（密码=ApiKey） |
+| Production | 配置 `Hangfire:AdminApiKey`；写 API 用头 `X-TaskRunner-Admin`，或 `/api/auth/login` 签发会话 Cookie（非密钥明文）；Dashboard 可用 Basic（密码=ApiKey） |
 
 只读由配置 `Hangfire:ReadOnlyMode` 控制（改配置需重启）。
 
@@ -51,7 +51,7 @@ Cron 支持 5/6 位。已存在任务的 Cron / 启用状态以 `TaskConfigs` �
 
 ## PostgreSQL / 生产
 
-只需一个数据库 `taskrunner` 与一个连接字符串 `ConnectionStrings:Default`：Hangfire 表位于同库的 `hangfire` schema，业务表 `TaskConfigs` 由 EF 迁移在启动时自动创建。公共配置在 `src/appsettings.json`（Api/Worker 构建时链接共享）；本地连接串用 User Secrets（见上方），生产用环境变量覆盖并设置 `Hangfire:AdminApiKey`。成功作业默认保留 60 分钟（`SucceededJobExpirationMinutes`）。
+只需一个数据库 `taskrunner` 与一个连接字符串 `ConnectionStrings:Default`：Hangfire 表位于同库的 `hangfire` schema，业务表 `TaskConfigs` 由 EF 迁移在 **Api 启动时**自动应用（也可选手跑 `./scripts/ef-database-update.ps1` / `.sh`）。公共配置在 `src/appsettings.json`；本地连接串用 User Secrets，生产用环境变量并设置 `Hangfire:AdminApiKey`。文件日志写在各宿主输出目录的 `logs/`（`BaseDirectory`）。成功作业默认保留 60 分钟（`SucceededJobExpirationMinutes`）。
 
 ### 多机部署（每机自带 PostgreSQL）
 

@@ -34,7 +34,7 @@ TaskRunner 解决的是**运维视角**的问题：任务怎么注册、怎么�
 8. As a 运维人员, I want 修改任务的 Cron 表达式（含合法性校验）, so that 不改代码发版即可调整执行频率
 9. As a 运维人员, I want 立即触发一次任务, so that 改完配置当场验证执行结果
 10. As a 运维人员, I want 每次执行在 Dashboard 有连续输出与耗时, so that 排查失败时有现场
-11. As a 管理员, I want Dashboard 与 REST 全部要求管理员密钥（header/cookie/Basic 任一）, so that 运维面不对未授权者开放
+11. As a 管理员, I want Dashboard 与 REST 全部要求管理员鉴权（header ApiKey / 登录会话 Cookie / Basic 任一）, so that 运维面不对未授权者开放
 12. As a 管理员, I want 开启只读模式后所有非查询请求被拒绝, so that 发布冻结期运维面天然只读
 13. As a 部署者, I want 生产拆成 Api（入队+Dashboard）与 Worker（执行）两个进程, so that 入队压力与执行压力互不影响、可分别伸缩
 14. As a 部署者, I want 启动时自动建业务表与调度引擎的表, so that 新环境零手工 SQL 即可拉起
@@ -47,7 +47,7 @@ TaskRunner 解决的是**运维视角**的问题：任务怎么注册、怎么�
 - **发现与注册**：启动期扫描宿主程序集与额外程序集，凡标注默认 Cron 的任务类型即生成稳定 JobId 并注册为 Hangfire 周期作业；启用状态、Cron 覆盖值以数据库为准，特性标注值仅为首次落库的种子。
 - **配置持久化**：单一业务表存任务的启用状态与 Cron 覆盖；EF Core 迁移自动建表；调度引擎表由 Hangfire 在独立 schema 内自建。
 - **调度引擎**：Hangfire 1.8 + PostgreSQL 存储；轮询间隔、成功作业保留时长、控制台跟随保留策略由共享配置统一下发；存储标识校验失败即启动失败（fail-fast），不允许带错误配置运行。
-- **鉴权**：共享管理员密钥三种等价携带方式（请求头、cookie、Basic）；Dashboard 用授权过滤器、REST 用认证方案；生产环境未配置密钥时启动即失败（fail-fast）。
+- **鉴权**：共享管理员密钥；三种等价访问方式为请求头 ApiKey、登录后 Cookie Authentication 会话票据（不含密钥明文）、Basic；Dashboard 用授权过滤器、REST 用认证方案；生产环境未配置密钥时启动即失败（fail-fast）。
 - **只读模式**：API 全局动作过滤器拦截非 GET 请求；配置键与 Dashboard/REST 鉴权同源。
 - **Cron 输入校验**：运维接口对 Cron 做语法与安全边界校验（拒绝非法或越界的高频表达式），校验失败返回明确错误信息。
 - **宿主角色**：同一套宿主装配按角色分化——Api 角色注册入队与监控读侧，Worker 角色注册执行侧；开发模式下单进程双角色。

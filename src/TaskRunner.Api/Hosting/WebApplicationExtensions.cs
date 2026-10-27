@@ -21,7 +21,7 @@ public static class WebApplicationExtensions
         var hangfireOptions = app.Services.GetRequiredService<IOptions<TaskRunnerOptions>>().Value;
         var dashboardPath = hangfireOptions.NormalizeDashboardPath();
 
-        // 文档端点全环境映射；生产由下方守卫要求管理员凭据（三形态），质询形态与 Dashboard 一致。
+        // 文档端点全环境映射；生产由鉴权后的守卫要求管理员凭据（会话 Cookie / Header / Basic）。
         app.MapOpenApi();
         app.MapScalarApiReference(options => options.WithTitle("TaskRunner API"));
 
@@ -47,26 +47,6 @@ public static class WebApplicationExtensions
             };
         });
 
-        if (!app.Environment.IsDevelopment())
-        {
-            app.Use((context, next) =>
-            {
-                var path = context.Request.Path;
-                if (path.StartsWithSegments("/openapi", StringComparison.OrdinalIgnoreCase)
-                    || path.StartsWithSegments("/scalar", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (!AdminCredentials.TryMatchRequest(context.Request, hangfireOptions.AdminApiKey))
-                    {
-                        context.Response.Headers.WWWAuthenticate = "Basic realm=\"TaskRunner\"";
-                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                        return Task.CompletedTask;
-                    }
-                }
-
-                return next();
-            });
-        }
-
         app.UseExceptionHandler();
         app.UseDefaultFiles();
         app.UseStaticFiles(new StaticFileOptions
@@ -83,6 +63,26 @@ public static class WebApplicationExtensions
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseRateLimiter();
+
+        if (!app.Environment.IsDevelopment())
+        {
+            app.Use((context, next) =>
+            {
+                var path = context.Request.Path;
+                if (path.StartsWithSegments("/openapi", StringComparison.OrdinalIgnoreCase)
+                    || path.StartsWithSegments("/scalar", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!AdminCredentials.IsAuthorized(context, hangfireOptions, isDevelopment: false))
+                    {
+                        context.Response.Headers.WWWAuthenticate = "Basic realm=\"TaskRunner\"";
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        return Task.CompletedTask;
+                    }
+                }
+
+                return next();
+            });
+        }
 
         app.MapHangfireDashboard(dashboardPath, new DashboardOptions
         {

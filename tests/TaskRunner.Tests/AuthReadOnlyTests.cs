@@ -27,17 +27,16 @@ public sealed class AuthReadOnlyTests
     }
 
     [Fact]
-    public async Task ApiKey_AcceptedViaHeaderCookieAndBasic_Equivalently()
+    public async Task ApiKey_AcceptedViaHeaderCookieSessionAndBasic_Equivalently()
     {
         using var app = NewApp();
         app.Seed(Seed.Demo());
 
-        // 三形态各自一个匿名 client，同一端点必须等效放行
+        // Header / 登录会话 Cookie / Basic 各自一个 client，同一端点必须等效放行
         var viaHeader = NewClient(app);
         viaHeader.DefaultRequestHeaders.Add(AdminAuthDefaults.HeaderName, Key);
 
-        var viaCookie = NewClient(app);
-        viaCookie.DefaultRequestHeaders.Add("Cookie", $"{AdminAuthDefaults.CookieName}={Key}");
+        var viaCookie = await LoginClientAsync(app);
 
         var viaBasic = NewClient(app);
         viaBasic.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
@@ -50,6 +49,19 @@ public sealed class AuthReadOnlyTests
             Assert.Equal("demo-job", (await response.Content.ReadFromJsonAsync<JsonElement>())[0]
                 .GetProperty("jobId").GetString());
         }
+    }
+
+    [Fact]
+    public async Task LoginCookie_IsNotRawApiKey()
+    {
+        using var app = NewApp();
+        var login = await NewClient(app).PostAsJsonAsync("/api/auth/login", new { apiKey = Key });
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+
+        Assert.True(login.Headers.TryGetValues("Set-Cookie", out var setCookies));
+        var cookieHeader = string.Join("; ", setCookies);
+        Assert.Contains(AdminAuthDefaults.CookieName, cookieHeader, StringComparison.Ordinal);
+        Assert.DoesNotContain(Key, cookieHeader, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -133,6 +145,28 @@ public sealed class AuthReadOnlyTests
     private static HttpClient Authorized(HttpClient client)
     {
         client.DefaultRequestHeaders.Add(AdminAuthDefaults.HeaderName, Key);
+        return client;
+    }
+
+    private static async Task<HttpClient> LoginClientAsync(ContractApp app)
+    {
+        var client = NewClient(app);
+        var login = await client.PostAsJsonAsync("/api/auth/login", new { apiKey = Key });
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        Assert.True(login.Headers.TryGetValues("Set-Cookie", out var setCookies));
+
+        // 测试宿主默认不自动存 Cookie；把登录签发的会话 Cookie 回写到后续请求。
+        var parts = new List<string>();
+        foreach (var header in setCookies)
+        {
+            var segment = header.Split(';', 2)[0].Trim();
+            if (!string.IsNullOrEmpty(segment))
+            {
+                parts.Add(segment);
+            }
+        }
+
+        client.DefaultRequestHeaders.Add("Cookie", string.Join("; ", parts));
         return client;
     }
 }
