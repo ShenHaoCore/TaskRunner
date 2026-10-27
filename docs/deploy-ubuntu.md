@@ -75,10 +75,8 @@ curl -H "X-TaskRunner-Admin: <你的密钥>" http://127.0.0.1:5088/api/tasks
 
 ## 配置的环境区分
 
-配置优先级（低 → 高）：`appsettings.shared.json`（公共默认）→ `appsettings.Production.json`
-（源 `src/appsettings.Production.shared.json`，随包分发，放非敏感的固定差异，如心跳开关、Worker 数）
-→ 环境变量 `/etc/default/taskrunner`（最高，放密钥与连接串）。
-开发环境对应层为 `appsettings.Development.json`。改完任一层都需要重启服务生效。
+配置优先级（低 → 高）：`appsettings.json`（公共默认，源 `src/appsettings.json`）→ 环境变量 `/etc/default/taskrunner`（密钥与连接串、以及生产差异如 Worker 数等）。
+本地开发另有 `appsettings.Development.json`。改完任一层都需要重启服务生效。
 实例当前环境可通过 `/info` 的 `environment` 字段确认（首页导航徽章同步显示）。
 
 ## 日志

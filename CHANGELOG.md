@@ -12,6 +12,8 @@
 
 ### 变更
 
+- 配置收敛：共享配置改为标准命名 `src/appsettings.json` + `src/appsettings.Development.json`（Api/Worker 链接共享）；去掉 `*.shared` 命名、各项目空壳 `appsettings.json` 与生产 JSON 覆盖层，生产差异统一走环境变量
+- 本地开发连接串改为 User Secrets（Api/Worker 共用 `UserSecretsId`），不再写入仓库；Worker 启动日志改为读取 `TaskRunnerOptions.Storage`，去掉错误的 `SqlServer` 回退
 - CD：打 tag 发布时自动把 CHANGELOG 对应版本的「升级到本版本要做什么」写入 Release 说明顶部（原手工步骤移除）
 - 依赖机器人（Dependabot）目标分支由 main 改为 develop，并忽略 `Microsoft.*` / `Npgsql*` 的主版本跳变（9→10 需整体 TFM 迁移决策）——此前两者分叉导致 release 合并冲突
 
