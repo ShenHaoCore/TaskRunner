@@ -2,7 +2,12 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## Unreleased
+## 3.3.1 - 2026-10-27
+
+### 升级到本版本要做什么
+
+- **Linux 安装**：重新执行 `install.sh` 后，若 `/etc/default/taskrunner` 仍含 `CHANGE_ME`，systemd 会在 `ExecStartPre` 拒绝启动——只改该 env 文件，不要改 `/opt/taskrunner/**/appsettings.json`
+- 多开发机 / 本机 Ubuntu 虚拟机（PG 在 VM 内）逐步操作见 [docs/本地开发与虚拟机.md](docs/本地开发与虚拟机.md)；宿主机可用 `setup-dev-secrets` / `publish-linux` / `deploy-ubuntu-vm` 脚本
 
 ### 变更
 
