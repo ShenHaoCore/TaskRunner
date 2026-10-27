@@ -2,6 +2,19 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 3.4.0 - 2026-10-27
+
+### 升级到本版本要做什么
+
+- Api 启动会迁移 `TaskConfigs.Queue` 列（也可选手跑 `ef-database-update`）
+- 若使用非 `default` 队列：在任务上标注 `Queue`，并配置 Worker 的 `Hangfire:Queues` 包含该名，否则作业积压
+
+### 变更
+
+- 多队列：`[RecurringTask(Queue=...)]` + `Hangfire:Queues`；清单字段 `queue`；周期/触发入声明队列（票 05）
+- 定时一次触发：`POST .../trigger` 支持 `runAt` / `delaySeconds`（票 06）
+- 任务运行台：`/run.html` 过滤 + 一键立即运行（票 07）
+
 ## 3.3.3 - 2026-10-27
 
 ### 升级到本版本要做什么

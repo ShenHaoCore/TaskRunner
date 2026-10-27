@@ -31,6 +31,8 @@ public static class HangfireServiceCollectionExtensions
             throw new InvalidOperationException("Hangfire:RetryAttempts 不能小于 0。");
         }
 
+        var queues = NormalizeQueues(options.Queues);
+
         services.AddHangfire((_, config) =>
         {
             config
@@ -65,12 +67,33 @@ public static class HangfireServiceCollectionExtensions
                 server.WorkerCount = Math.Max(1, options.WorkerCount);
                 server.SchedulePollingInterval = schedulePoll;
                 server.HeartbeatInterval = TimeSpan.FromSeconds(15);
-                server.Queues = ["default"];
+                server.Queues = queues;
                 server.ServerName = $"{Environment.MachineName}:{Environment.ProcessId}:taskrunner-{suffix}";
             });
         }
 
         return services;
+    }
+
+    private static string[] NormalizeQueues(string[]? configured)
+    {
+        var source = configured is { Length: > 0 } ? configured : [QueueNameGuard.Default];
+        var normalized = new List<string>(source.Length);
+        foreach (var item in source)
+        {
+            var queue = QueueNameGuard.Normalize(item);
+            if (!normalized.Contains(queue, StringComparer.Ordinal))
+            {
+                normalized.Add(queue);
+            }
+        }
+
+        if (normalized.Count == 0)
+        {
+            normalized.Add(QueueNameGuard.Default);
+        }
+
+        return normalized.ToArray();
     }
 
     private static void ReplaceRetryFilter(int attempts)

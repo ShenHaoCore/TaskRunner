@@ -14,6 +14,9 @@ public sealed class TaskRunnerOptions
 
     public int WorkerCount { get; set; } = 5;
 
+    /// <summary>Hangfire Server 订阅的队列列表（顺序即拉取优先）；缺省仅 default。</summary>
+    public string[] Queues { get; set; } = [QueueNameGuard.Default];
+
     public int RetryAttempts { get; set; } = 3;
 
     /// <summary>配置级只读；修改需改配置并重启。</summary>

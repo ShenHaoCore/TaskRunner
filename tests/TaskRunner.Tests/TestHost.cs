@@ -28,8 +28,12 @@ namespace TaskRunner.Tests;
 /// <summary>票 02/03 共享的发现结果种子。</summary>
 internal static class Seed
 {
-    public static RecurringJobDescriptor Demo(string jobId = "demo-job", string cron = "*/5 * * * * *", bool enabled = true) =>
-        new(jobId, "DemoJob", cron, "Demo.Job, Demo", typeof(string), "演示任务", enabled);
+    public static RecurringJobDescriptor Demo(
+        string jobId = "demo-job",
+        string cron = "*/5 * * * * *",
+        bool enabled = true,
+        string queue = "default") =>
+        new(jobId, "DemoJob", cron, "Demo.Job, Demo", typeof(string), "演示任务", enabled, queue);
 }
 
 /// <summary>记录调度的 fake：断言「运维操作驱动 Hangfire」的可观察证据。</summary>
@@ -38,17 +42,25 @@ internal sealed class RecordingScheduler : ITaskScheduler
     public List<string> Added { get; } = [];
     public List<string> Removed { get; } = [];
     public List<string> Enqueued { get; } = [];
+    public List<string> Scheduled { get; } = [];
 
-    public void AddOrUpdateRecurring(string jobId, string jobType, string cron) => Added.Add($"{jobId}|{cron}");
+    public void AddOrUpdateRecurring(string jobId, string jobType, string cron, string queue) =>
+        Added.Add($"{jobId}|{cron}|{queue}");
 
     public void RemoveRecurring(string jobId) => Removed.Add(jobId);
 
     public IReadOnlyList<string> PruneRecurringExcept(IReadOnlyCollection<string> keepJobIds) => [];
 
-    public string Enqueue(string jobId, string jobType)
+    public string Enqueue(string jobId, string jobType, string queue)
     {
-        Enqueued.Add(jobId);
+        Enqueued.Add($"{jobId}|{queue}");
         return $"queue-{Guid.NewGuid():N}";
+    }
+
+    public string Schedule(string jobId, string jobType, string queue, DateTimeOffset runAt)
+    {
+        Scheduled.Add($"{jobId}|{queue}|{runAt:O}");
+        return $"sched-{Guid.NewGuid():N}";
     }
 
     public void Reset()
@@ -56,6 +68,7 @@ internal sealed class RecordingScheduler : ITaskScheduler
         Added.Clear();
         Removed.Clear();
         Enqueued.Clear();
+        Scheduled.Clear();
     }
 }
 

@@ -44,6 +44,7 @@ public sealed class HangfireMonitoringReader(JobStorage storage, ILogger<Hangfir
                 config.IsEnabled,
                 config.JobType,
                 config.Description,
+                string.IsNullOrWhiteSpace(config.Queue) ? "default" : config.Queue,
                 job?.LastExecution,
                 job?.NextExecution,
                 job?.LastJobState,

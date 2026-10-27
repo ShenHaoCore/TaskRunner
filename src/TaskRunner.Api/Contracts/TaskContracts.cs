@@ -10,4 +10,12 @@ public sealed record AdminLoginRequest
     public required string ApiKey { get; init; }
 }
 
-public sealed record QueueJobResult(string JobId, string QueueJobId);
+public sealed record QueueJobResult(string JobId, string QueueJobId, bool Scheduled = false);
+
+/// <summary>触发请求：省略或空体=立即；runAt 与 delaySeconds 互斥。</summary>
+public sealed record TriggerRequest
+{
+    public DateTimeOffset? RunAt { get; init; }
+
+    public int? DelaySeconds { get; init; }
+}

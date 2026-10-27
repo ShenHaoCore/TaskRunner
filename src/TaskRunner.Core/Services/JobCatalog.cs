@@ -30,6 +30,7 @@ public static class RecurringJobScanner
             }
 
             CronExpressionGuard.EnsureValid(attribute.Cron);
+            var queue = QueueNameGuard.Normalize(attribute.Queue);
             var jobId = JobIdGenerator.Create(type, attribute.JobId);
             jobs.Add(new RecurringJobDescriptor(
                 jobId,
@@ -38,7 +39,8 @@ public static class RecurringJobScanner
                 JobTypeName.For(type),
                 type,
                 attribute.Description,
-                attribute.Enabled));
+                attribute.Enabled,
+                queue));
         }
 
         EnsureUnique(jobs.Select(job => job.JobId));

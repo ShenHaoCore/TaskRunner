@@ -27,6 +27,7 @@ public sealed class RestContractTests
         Assert.Equal("*/5 * * * * *", first.GetProperty("cronExpr").GetString());
         Assert.True(first.GetProperty("isEnabled").GetBoolean());
         Assert.Equal("演示任务", first.GetProperty("description").GetString());
+        Assert.Equal("default", first.GetProperty("queue").GetString());
         // MonitoringApi 侧字段（MemoryStorage 无执行记录，应为 null 而非缺失）
         Assert.Equal(JsonValueKind.Null, first.GetProperty("lastExecution").ValueKind);
         Assert.Equal(JsonValueKind.Null, first.GetProperty("nextExecution").ValueKind);
@@ -110,7 +111,56 @@ public sealed class RestContractTests
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("demo-job", body.GetProperty("jobId").GetString());
         Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("queueJobId").GetString()));
-        Assert.Contains("demo-job", app.Scheduler.Enqueued);
+        Assert.Contains("demo-job|default", app.Scheduler.Enqueued);
+    }
+
+    [Fact]
+    public async Task Trigger_WithQueue_EnqueuesToDeclaredQueue()
+    {
+        using var app = new ContractApp();
+        app.Seed(Seed.Demo(queue: "critical"));
+
+        var response = await app.Client.PostAsync("/api/tasks/demo-job/trigger", null);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("demo-job|critical", app.Scheduler.Enqueued);
+
+        var body = await app.GetJsonAsync("/api/tasks/demo-job");
+        Assert.Equal("critical", body.GetProperty("queue").GetString());
+    }
+
+    [Fact]
+    public async Task Trigger_WithRunAt_SchedulesOnce()
+    {
+        using var app = new ContractApp();
+        app.Seed(Seed.Demo());
+        var runAt = DateTimeOffset.UtcNow.AddMinutes(5);
+
+        var response = await app.Client.PostAsJsonAsync("/api/tasks/demo-job/trigger", new { runAt });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(body.GetProperty("scheduled").GetBoolean());
+        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("queueJobId").GetString()));
+        Assert.Contains(app.Scheduler.Scheduled, item => item.StartsWith("demo-job|default|", StringComparison.Ordinal));
+        Assert.Empty(app.Scheduler.Enqueued);
+    }
+
+    [Fact]
+    public async Task Trigger_RejectsPastRunAt_AndBothRunAtAndDelay()
+    {
+        using var app = new ContractApp();
+        app.Seed(Seed.Demo());
+
+        var past = await app.Client.PostAsJsonAsync(
+            "/api/tasks/demo-job/trigger",
+            new { runAt = DateTimeOffset.UtcNow.AddMinutes(-1) });
+        Assert.Equal(HttpStatusCode.BadRequest, past.StatusCode);
+
+        var both = await app.Client.PostAsJsonAsync(
+            "/api/tasks/demo-job/trigger",
+            new { runAt = DateTimeOffset.UtcNow.AddMinutes(5), delaySeconds = 60 });
+        Assert.Equal(HttpStatusCode.BadRequest, both.StatusCode);
+        Assert.Empty(app.Scheduler.Scheduled);
     }
 
     [Fact]
