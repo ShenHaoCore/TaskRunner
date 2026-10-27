@@ -68,8 +68,12 @@ public sealed class RecurringJobBootstrapper(
                     continue;
                 }
 
-                scheduler.AddOrUpdateRecurring(config.JobId, config.JobType, config.CronExpr);
-                logger.LogInformation("定时任务 {JobId} 已注册，Cron={Cron}。", config.JobId, config.CronExpr);
+                scheduler.AddOrUpdateRecurring(config.JobId, config.JobType, config.CronExpr, config.Queue);
+                logger.LogInformation(
+                    "定时任务 {JobId} 已注册，Cron={Cron}，Queue={Queue}。",
+                    config.JobId,
+                    config.CronExpr,
+                    config.Queue);
             }
             catch (Exception ex)
             {

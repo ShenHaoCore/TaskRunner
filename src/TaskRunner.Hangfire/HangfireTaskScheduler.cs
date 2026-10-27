@@ -7,20 +7,17 @@ namespace TaskRunner.Hangfire;
 
 public sealed class HangfireTaskScheduler(IBackgroundJobClient jobs, IRecurringJobManager recurring) : ITaskScheduler
 {
-    private static readonly RecurringJobOptions Options = new()
-    {
-        TimeZone = TimeZoneInfo.Utc
-    };
-
-    public void AddOrUpdateRecurring(string jobId, string jobType, string cron)
+    public void AddOrUpdateRecurring(string jobId, string jobType, string cron, string queue)
     {
         CronExpressionGuard.EnsureValid(cron);
+        var queueName = QueueNameGuard.Normalize(queue);
         // PerformContext / IJobCancellationToken 入队时传 null，由 Hangfire 运行时注入。
         recurring.AddOrUpdate<HangfireJobGateway>(
             jobId,
+            queueName,
             gateway => gateway.ExecuteAsync(jobId, jobType, null!, null!),
             cron,
-            Options);
+            new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
     }
 
     public void RemoveRecurring(string jobId) => recurring.RemoveIfExists(jobId);
@@ -44,7 +41,17 @@ public sealed class HangfireTaskScheduler(IBackgroundJobClient jobs, IRecurringJ
         return removed;
     }
 
-    public string Enqueue(string jobId, string jobType)
-        => jobs.Enqueue<HangfireJobGateway>(gateway =>
+    public string Enqueue(string jobId, string jobType, string queue)
+    {
+        var queueName = QueueNameGuard.Normalize(queue);
+        return jobs.Enqueue(queueName, (HangfireJobGateway gateway) =>
             gateway.ExecuteAsync(jobId, jobType, null!, null!));
+    }
+
+    public string Schedule(string jobId, string jobType, string queue, DateTimeOffset runAt)
+    {
+        var queueName = QueueNameGuard.Normalize(queue);
+        return jobs.Schedule(queueName, (HangfireJobGateway gateway) =>
+            gateway.ExecuteAsync(jobId, jobType, null!, null!), runAt);
+    }
 }

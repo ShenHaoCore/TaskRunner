@@ -16,6 +16,9 @@ public sealed class TaskConfig
 
     public string? Description { get; set; }
 
+    /// <summary>目标队列（来自契约标注，同步时覆盖；不可运维 API 修改）。</summary>
+    public string Queue { get; set; } = "default";
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }

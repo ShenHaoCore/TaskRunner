@@ -7,7 +7,8 @@ public sealed record RecurringJobDescriptor(
     string JobType,
     Type ClrType,
     string? Description,
-    bool EnabledByDefault);
+    bool EnabledByDefault,
+    string Queue = "default");
 
 public sealed record JobStatistics(
     long Succeeded,
@@ -31,6 +32,7 @@ public sealed record TaskConfigView(
     bool IsEnabled,
     string JobType,
     string? Description,
+    string Queue,
     DateTime? LastExecution,
     DateTime? NextExecution,
     string? LastJobState,

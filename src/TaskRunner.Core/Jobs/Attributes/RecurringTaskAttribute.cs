@@ -22,4 +22,7 @@ public sealed class RecurringTaskAttribute : Attribute
     public string? Name { get; set; }
 
     public bool Enabled { get; set; } = true;
+
+    /// <summary>目标队列；省略则 default。字符集：小写字母、数字、_、-。</summary>
+    public string? Queue { get; set; }
 }
