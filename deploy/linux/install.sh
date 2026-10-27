@@ -67,8 +67,9 @@ if [[ ! -f ${DEFAULTS_FILE} ]]; then
   echo "==> 生成配置文件 ${DEFAULTS_FILE}（含占位符，启动前必须修改）"
   cat > "${DEFAULTS_FILE}" <<'EOF'
 # TaskRunner 生产配置（systemd EnvironmentFile）。
-# 两处 CHANGE_ME 必填，改完执行：sudo systemctl restart taskrunner-api taskrunner-worker
-ConnectionStrings__Default='Host=localhost;Port=5432;Database=taskrunner;Username=taskrunner;Password=CHANGE_ME'
+# 两处 CHANGE_ME 必填；只改本文件，不要改 /opt/taskrunner/**/appsettings.json。
+# 改完执行：sudo systemctl restart taskrunner-api taskrunner-worker
+ConnectionStrings__Default='Host=127.0.0.1;Port=5432;Database=taskrunner;Username=taskrunner;Password=CHANGE_ME'
 Hangfire__AdminApiKey='CHANGE_ME'
 
 # 可选覆盖（取消注释生效；此处同名变量优先于 unit 内默认值）：
@@ -89,9 +90,12 @@ systemctl enable taskrunner-api taskrunner-worker >/dev/null
 if [[ ${NEED_CONFIG} -eq 1 ]]; then
   cat <<EOF
 
-安装完成，还差最后一步——生产配置：
-  1) sudo nano ${DEFAULTS_FILE}    # 填好数据库连接串与管理员密钥（两处 CHANGE_ME）
+安装完成，还差最后一步——本机生产配置（含 CHANGE_ME，服务不会启动）：
+  1) sudo nano ${DEFAULTS_FILE}
+     填好 ConnectionStrings__Default 与 Hangfire__AdminApiKey（两处 CHANGE_ME）
+     不要改 ${INSTALL_ROOT}/**/appsettings.json（升级会覆盖；多机应共用同一份发布包）
   2) sudo systemctl start taskrunner-api taskrunner-worker
+     （若仍含 CHANGE_ME，systemd ExecStartPre 会拒绝启动）
 EOF
 else
   echo "==> 配置已存在且有效，启动服务"

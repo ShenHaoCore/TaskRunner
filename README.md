@@ -7,14 +7,24 @@
 
 ## 运行（开发，PostgreSQL 容器）
 
-```bash
-docker run -d --name taskrunner-pg -e POSTGRES_USER=taskrunner -e POSTGRES_PASSWORD=TaskRunner!2026 -e POSTGRES_DB=taskrunner -p 15432:5432 postgres:17
-dotnet user-secrets set "ConnectionStrings:Default" "Host=127.0.0.1;Port=15432;Database=taskrunner;Username=taskrunner;Password=TaskRunner!2026;" --project src/TaskRunner.Api
+**推荐布局（Windows）**：PostgreSQL 装在本机 **Ubuntu 虚拟机** 里，宿主机只跑 `dotnet run`，连接串 Host 填虚拟机 IP（须放行 `pg_hba` / `listen_addresses`）。逐步说明见 [docs/本地开发与虚拟机.md](docs/本地开发与虚拟机.md)。
+
+```powershell
+# Windows：PG 在 Ubuntu VM（把 IP/密码换成你的）
+./scripts/setup-dev-secrets.ps1 -VmHost 192.168.56.10 -Password "你的密码"
 dotnet test
 dotnet run --project src/TaskRunner.Api
 ```
 
-`UserSecretsId` 与 Worker 共用，上面只需对 Api 设一次。开发环境 Api 角色为 `Combined`，**不必**再开 Worker。
+```bash
+# Mac 同样指到 VM；或临时用宿主机 Docker：
+# docker run -d --name taskrunner-pg -e POSTGRES_USER=taskrunner -e POSTGRES_PASSWORD=TaskRunner!2026 -e POSTGRES_DB=taskrunner -p 15432:5432 postgres:17
+# ./scripts/setup-dev-secrets.sh   # 无参数时默认 127.0.0.1:15432
+./scripts/setup-dev-secrets.sh --vm-host 192.168.56.10 --password '你的密码'
+dotnet run --project src/TaskRunner.Api
+```
+
+`setup-dev-secrets` 写入本机 User Secrets（Api/Worker 共用 `UserSecretsId`）。开发环境 Api 为 `Combined`，**不必**再开 Worker；与 VM 内 Worker **不要同时**连同一库抢 Server。
 
 - 首页：http://localhost:5088
 - Dashboard：http://localhost:5088/taskrunner
@@ -51,6 +61,18 @@ Cron 支持 5/6 位。已存在任务的 Cron / 启用状态以 `TaskConfigs` �
 
 只需一个数据库 `taskrunner` 与一个连接字符串 `ConnectionStrings:Default`：Hangfire 表位于同库的 `hangfire` schema，业务表 `TaskConfigs` 由 EF 迁移在启动时自动创建。公共配置在 `src/appsettings.json`（Api/Worker 构建时链接共享）；本地连接串用 User Secrets（见上方），生产用环境变量覆盖并设置 `Hangfire:AdminApiKey`。成功作业默认保留 60 分钟（`SucceededJobExpirationMinutes`）。
 
+### 多机部署（每机自带 PostgreSQL）
+
+**发布包全网相同，禁止按机器改仓库或包内的 `appsettings*.json`。** 本机差异只放在该机的环境变量里：
+
+| 场景 | 放哪里 | 不要改 |
+|------|--------|--------|
+| 开发 | User Secrets（见上方） | `src/appsettings*.json` |
+| Linux 生产 | `/etc/default/taskrunner`（`ConnectionStrings__Default`、`Hangfire__AdminApiKey` 等） | `/opt/taskrunner/**/appsettings*.json` |
+| Windows 生产 | 机器级环境变量（见 `scripts/install-worker-service.ps1` 提示） | 发布目录里的 `appsettings.json` |
+
+建议各机约定：PG 在本机 `127.0.0.1:5432`、库/用户均为 `taskrunner`，**只有密码与 AdminApiKey 因机而异**。升级只覆盖程序目录，不动本机 env。本仓库当前不使用 Redis；若其他服务用本机 Redis，同样用该服务自己的本机 env，不要往本仓塞按机器分叉的 JSON。
+
 生产请单独运行 Worker（或安装 Windows 服务）：
 
 ```powershell
@@ -60,7 +82,22 @@ dotnet run --project src/TaskRunner.Worker
 ./scripts/uninstall-worker-service.ps1
 ```
 
-Linux（Ubuntu）部署：打包 `./scripts/publish-linux.ps1`，服务器端 systemd 安装见 [docs/deploy-ubuntu.md](docs/deploy-ubuntu.md)。
+Linux（Ubuntu / 本机虚拟机）部署：
+
+```powershell
+# Windows 宿主机
+./scripts/publish-linux.ps1
+./scripts/deploy-ubuntu-vm.ps1 -Target user@192.168.x.x
+```
+
+```bash
+# Mac / Linux 宿主机
+./scripts/publish-linux.sh
+./scripts/deploy-ubuntu-vm.sh user@192.168.x.x
+```
+
+操作说明书（开发机 + 本机 Ubuntu 虚拟机逐步怎么做）：[docs/本地开发与虚拟机.md](docs/本地开发与虚拟机.md)。  
+服务器端细节见 [docs/deploy-ubuntu.md](docs/deploy-ubuntu.md)。
 
 ## 项目结构
 

@@ -53,6 +53,8 @@ $package = $packageAbs
 $size = "{0:N1} MB" -f ((Get-Item $package).Length / 1MB)
 Write-Output ""
 Write-Output "Package ready: $package ($size)"
-Write-Output "Deploy to Ubuntu:"
+Write-Output "Deploy to Ubuntu VM:"
+Write-Output "  ./scripts/deploy-ubuntu-vm.ps1 -Target user@192.168.x.x"
+Write-Output "Or manually:"
 Write-Output "  scp $package user@server:/tmp/"
 Write-Output "  ssh user@server `"mkdir -p /tmp/taskrunner && tar -xzf /tmp/taskrunner-$version-linux-x64.tar.gz -C /tmp/taskrunner && sudo bash /tmp/taskrunner/deploy/install.sh`""
