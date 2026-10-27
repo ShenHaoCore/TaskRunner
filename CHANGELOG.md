@@ -2,7 +2,15 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## Unreleased
+## 3.3.0 - 2026-10-27
+
+### 升级到本版本要做什么
+
+- **配置文件布局变更**：公共默认改为 `src/appsettings.json`（构建时链接到 Api/Worker），已移除 `*.shared` 命名与 `appsettings.Production.json` 覆盖层；生产差异（含原生产 JSON 里的非敏感项）一律走环境变量（如 `/etc/default/taskrunner`）
+- **本地开发连接串**：不再写入仓库，需执行 `dotnet user-secrets set "ConnectionStrings:Default" "..."`（Api/Worker 共用 `UserSecretsId`，对 Api 设一次即可）；步骤见 README
+- **TLS 反代部署**：若管理员登录 Cookie 需带 Secure，配置 `Hangfire:CookieSecure=true` 并重启
+- 登录接口生产环境按 IP 限流（5 次/分钟，超出 429）；Development 不限
+- 重新安装/更新 Linux 单元后 Worker 会排在 Api 之后启动（规避双进程首启迁移竞态）
 
 ### 新增
 
