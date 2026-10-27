@@ -11,6 +11,8 @@ WorkingDirectory=/opt/taskrunner/api
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=ASPNETCORE_URLS=http://127.0.0.1:5088
 EnvironmentFile=-/etc/default/taskrunner
+# 占位符未改完则拒绝启动；只改 /etc/default/taskrunner，勿改包内 appsettings
+ExecStartPre=/usr/bin/bash -c 'test -f /etc/default/taskrunner && ! grep -q CHANGE_ME /etc/default/taskrunner || { echo "Edit /etc/default/taskrunner (replace CHANGE_ME); do not edit appsettings.json" >&2; exit 1; }'
 ExecStart=/opt/taskrunner/api/TaskRunner.Api
 Restart=on-failure
 RestartSec=5

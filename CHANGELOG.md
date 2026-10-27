@@ -2,6 +2,14 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## Unreleased
+
+### 变更
+
+- 多机配置约定落地：README / deploy-ubuntu 明确「发布包相同，只改本机 env / User Secrets，禁止改包内 appsettings」；Linux 单元增加 `ExecStartPre`，`/etc/default/taskrunner` 仍含 `CHANGE_ME` 时拒绝启动；Windows Worker 安装脚本改为只引导机器级环境变量
+- 开发/发布脚本补齐：`setup-dev-secrets`（ps1/sh）、Mac/Linux 用 `publish-linux.sh`、宿主机一键装进 Ubuntu VM 的 `deploy-ubuntu-vm`（ps1/sh）
+- 新增操作说明书 [docs/本地开发与虚拟机.md](docs/本地开发与虚拟机.md)（多开发机 + 本机 Ubuntu 虚拟机）
+
 ## 3.3.0 - 2026-10-27
 
 ### 升级到本版本要做什么

@@ -11,11 +11,17 @@
 
 ## 获取发布包
 
-**方式 A：本地一键打包**（开发机 Windows，产物自包含单文件，零运行时依赖）
+**方式 A：本地一键打包**（任意装有 .NET 9 SDK 的宿主机；产物自包含单文件，零运行时依赖）
 
 ```powershell
+# Windows
 ./scripts/publish-linux.ps1
 # 产物：artifacts/taskrunner-<版本>-linux-x64.tar.gz（含 api/、worker/、deploy/）
+```
+
+```bash
+# Mac / Linux
+./scripts/publish-linux.sh
 ```
 
 **方式 B：GitHub Release 下载**
@@ -33,6 +39,20 @@ taskrunner/          # 包根目录
 > 配这种包需用 `sudo TASKRUNNER_SERVICE_TYPE=simple bash ./deploy/install.sh` 安装，否则服务启动会超时失败。
 
 ## 安装
+
+**一键（推荐，本机 Ubuntu 虚拟机或远程机均可）**
+
+```powershell
+# Windows 宿主机（先 publish-linux.ps1）
+./scripts/deploy-ubuntu-vm.ps1 -Target user@192.168.56.10
+```
+
+```bash
+# Mac / Linux 宿主机（先 publish-linux.sh）
+./scripts/deploy-ubuntu-vm.sh user@192.168.56.10
+```
+
+**手动**
 
 ```bash
 # 上传并解压
@@ -76,8 +96,19 @@ curl -H "X-TaskRunner-Admin: <你的密钥>" http://127.0.0.1:5088/api/tasks
 ## 配置的环境区分
 
 配置优先级（低 → 高）：`appsettings.json`（公共默认，源 `src/appsettings.json`）→ 环境变量 `/etc/default/taskrunner`（密钥与连接串、以及生产差异如 Worker 数等）。
-本地开发另有 `appsettings.Development.json`。改完任一层都需要重启服务生效。
+本地开发用 User Secrets（见 README），不要改仓库里的连接串。改完 EnvironmentFile 需 `systemctl restart` 才生效。
 实例当前环境可通过 `/info` 的 `environment` 字段确认（首页导航徽章同步显示）。
+
+### 多机：包相同，只改本机 env
+
+每台机器可以自带 PostgreSQL（甚至本机 Redis 给其他服务用），但 **TaskRunner 发布包与仓库配置保持一份**：
+
+1. 所有机器安装同一份 tar.gz / 同一套 `api/`、`worker/`。
+2. **只**编辑该机的 `/etc/default/taskrunner`（填本机 PG 连接串与 `Hangfire__AdminApiKey`）。
+3. **不要**改 `/opt/taskrunner/api/appsettings.json` 或 `worker` 下同名文件——升级会被覆盖，且无法在多机间保持一致。
+4. 升级重跑 `install.sh` 只替换程序；已有且不含 `CHANGE_ME` 的 `/etc/default/taskrunner` 会保留并自动重启服务。
+
+约定建议：各机 PG 监听 `127.0.0.1:5432`、库/用户 `taskrunner`，仅密码不同。文件里若仍含 `CHANGE_ME`，systemd 的 `ExecStartPre` 会拒绝启动，避免带着占位符跑起来。
 
 ## 日志
 
@@ -118,7 +149,8 @@ sudo bash /tmp/taskrunner/deploy/install.sh
 ## 常见问题
 
 - **Api 启动即失败，日志提示管理员密钥**：`/etc/default/taskrunner` 里 `Hangfire__AdminApiKey` 还没填（3.1.0 起 fail-fast）。填好后 `sudo systemctl restart taskrunner-api`。
+- **`systemctl start` 立刻失败，journal 提到 CHANGE_ME / ExecStartPre**：`/etc/default/taskrunner` 仍含占位符。只改该文件两处 `CHANGE_ME`，**不要**去改 `/opt/taskrunner/**/appsettings.json`，然后 `sudo systemctl restart taskrunner-api taskrunner-worker`。
 - **`systemctl start` 超时后服务标记 failed**：包是旧版产物、不支持 `Type=notify`。用 `sudo TASKRUNNER_SERVICE_TYPE=simple bash ./deploy/install.sh` 重装，或换新包。
-- **数据库连不上**：确认连接串、PG 的 `pg_hba.conf`/监听地址；本机未装 PG 时 `postgresql.service` 的排序不生效，属正常。
-- **改了配置没生效**：EnvironmentFile 只在服务启动时读取，改完必须 `systemctl restart`。
+- **数据库连不上**：确认 `/etc/default/taskrunner` 里连接串、PG 的 `pg_hba.conf`/监听地址；本机未装 PG 时 `postgresql.service` 的排序不生效，属正常。
+- **改了配置没生效**：EnvironmentFile 只在服务启动时读取，改完必须 `systemctl restart`。若误改了包内 `appsettings.json`，下次升级会被覆盖——应改回本机 env。
 - **首次部署 Worker 启动报迁移冲突**：极小概率（Api/Worker 同时首启都在跑迁移），重试一次即自愈；Worker 单元已排序在 Api 之后，正常不会再出现。
