@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -17,13 +18,15 @@ public sealed class AuthController(IOptions<TaskRunnerOptions> options, IHostEnv
     [EnableRateLimiting(AdminAuthDefaults.LoginRateLimitPolicy)]
     [HttpPost("login", Name = "AdminLogin")]
     [EndpointSummary("登录")]
-    [EndpointDescription("写入管理员 Cookie。生产环境按 IP 限流（5 次/分钟，超出 429）。")]
-    public ActionResult Login(AdminLoginRequest request)
+    [EndpointDescription("校验 ApiKey 后签发 Cookie 会话票据（非明文密钥）。生产环境按 IP 限流（5 次/分钟，超出 429）。")]
+    public async Task<ActionResult> Login(AdminLoginRequest request)
     {
         if (environment.IsDevelopment())
         {
-            Response.Cookies.Append(AdminAuthDefaults.CookieName, "development", CreateCookieOptions());
-            return Ok(new { message = "Development 环境已写入 Cookie。" });
+            await HttpContext.SignInAsync(
+                AdminAuthDefaults.CookieScheme,
+                AdminCredentials.CreatePrincipal("development", AdminAuthDefaults.CookieScheme));
+            return Ok(new { message = "Development 环境已写入会话 Cookie。" });
         }
 
         var key = options.Value.AdminApiKey;
@@ -32,24 +35,18 @@ public sealed class AuthController(IOptions<TaskRunnerOptions> options, IHostEnv
             return Unauthorized(new { message = "ApiKey 无效。" });
         }
 
-        Response.Cookies.Append(AdminAuthDefaults.CookieName, key, CreateCookieOptions());
+        await HttpContext.SignInAsync(
+            AdminAuthDefaults.CookieScheme,
+            AdminCredentials.CreatePrincipal("cookie", AdminAuthDefaults.CookieScheme));
         return Ok(new { message = "已登录。可打开 Dashboard。" });
     }
 
     [Authorize(Policy = AdminAuthDefaults.Policy)]
     [HttpPost("logout", Name = "AdminLogout")]
     [EndpointSummary("退出")]
-    public ActionResult Logout()
+    public async Task<ActionResult> Logout()
     {
-        Response.Cookies.Delete(AdminAuthDefaults.CookieName);
+        await HttpContext.SignOutAsync(AdminAuthDefaults.CookieScheme);
         return Ok(new { message = "已退出。" });
     }
-
-    private CookieOptions CreateCookieOptions() => new()
-    {
-        HttpOnly = true,
-        SameSite = SameSiteMode.Lax,
-        Secure = options.Value.CookieSecure,
-        Path = "/"
-    };
 }

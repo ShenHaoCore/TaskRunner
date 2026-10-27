@@ -335,7 +335,7 @@
                 <span class="mark">▸</span>
                 <h1>管理员登录</h1>
             </div>
-            <p class="sub">登录后写入管理员 Cookie，Dashboard 与运维接口在本浏览器内免弹窗访问。</p>
+            <p class="sub">登录后签发加密会话 Cookie（不含密钥明文），Dashboard 与运维接口在本浏览器内免弹窗访问。</p>
             <label for="api-key">管理员密钥</label>
             <input type="password" id="api-key" name="apiKey" autocomplete="current-password" autofocus required />
             <p class="field-hint">即生产配置 <code>Hangfire:AdminApiKey</code>（服务器上位于 <code>/etc/default/taskrunner</code>）。</p>

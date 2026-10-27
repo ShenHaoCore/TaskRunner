@@ -10,6 +10,7 @@ using TaskRunner.Hangfire;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddSharedConfiguration(builder.Environment.EnvironmentName);
+AppPaths.AbsolutizeSerilogFilePaths(builder.Configuration);
 
 builder.Services.AddSerilog((services, configuration) => configuration
     .ReadFrom.Configuration(builder.Configuration)
@@ -19,9 +20,6 @@ builder.Services.AddSerilog((services, configuration) => configuration
 
 // Linux systemd 部署（Type=notify）；非 systemd 环境为 no-op。
 builder.Services.AddSystemd();
-
-var logRoot = AppPaths.FindSolutionRoot(builder.Environment.ContentRootPath) ?? builder.Environment.ContentRootPath;
-Directory.SetCurrentDirectory(logRoot);
 
 // 生产环境未配置管理员密钥时启动即失败：AdminKeyGuardStartupFilter（AddTaskRunnerAdminAuth 注册）。
 

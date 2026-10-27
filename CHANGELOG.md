@@ -2,6 +2,14 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## Unreleased
+
+### 变更
+
+- 鉴权：`/api/auth/login` 改为 ASP.NET Cookie 会话票据（不再把 ApiKey 明文写入 Cookie）；Header / Basic 不变；`MatchesKey` 长度不一致时安全返回 false
+- 日志：Serilog 文件路径解析到 `AppContext.BaseDirectory/logs`，去掉依赖查找 `.sln` 的 `SetCurrentDirectory`
+- 迁移：保留 Api 启动 `MigrateAsync`；新增 `scripts/ef-database-update`（ps1/sh）供显式迁库
+
 ## 3.3.2 - 2026-10-27
 
 ### 升级到本版本要做什么
