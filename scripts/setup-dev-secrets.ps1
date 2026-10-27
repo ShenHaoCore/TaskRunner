@@ -1,8 +1,8 @@
 # Sets local User Secrets for development (Api/Worker share UserSecretsId).
-# Typical layout: PostgreSQL runs inside the Ubuntu VM; pass the VM IP as Host.
+# Typical layout: PostgreSQL in WSL Ubuntu; Windows uses localhost relay → Host=127.0.0.1.
 # Usage:
-#   ./scripts/setup-dev-secrets.ps1 -ConnectionString "Host=192.168.56.10;Port=5432;Database=taskrunner;Username=taskrunner;Password=..."
-#   ./scripts/setup-dev-secrets.ps1 -VmHost 192.168.56.10 -Password "..."
+#   ./scripts/setup-dev-secrets.ps1 -VmHost 127.0.0.1 -Password "..."
+#   ./scripts/setup-dev-secrets.ps1 -ConnectionString "Host=127.0.0.1;Port=5432;Database=taskrunner;Username=taskrunner;Password=..."
 # Optional Docker-on-host default (port 15432) if -ConnectionString / -VmHost omitted.
 param(
     [string]$ConnectionString,
@@ -20,7 +20,7 @@ if (-not $ConnectionString) {
     } else {
         $ConnectionString = "Host=127.0.0.1;Port=15432;Database=taskrunner;Username=taskrunner;Password=TaskRunner!2026;"
         Write-Output "No -VmHost/-ConnectionString: using Docker-on-host default (127.0.0.1:15432)."
-        Write-Output "For PG inside Ubuntu VM, use: -VmHost <vm-ip> -Password <pg-password>"
+        Write-Output "For PG inside WSL, use: -VmHost 127.0.0.1 -Password <pg-password>"
     }
 }
 

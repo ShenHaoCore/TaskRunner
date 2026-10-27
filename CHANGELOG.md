@@ -2,6 +2,16 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 3.3.2 - 2026-10-27
+
+### 升级到本版本要做什么
+
+- Windows + WSL 布局以 [docs/本地开发与虚拟机.md](docs/本地开发与虚拟机.md) 为准：PG 在 WSL 时 Secrets 用 `Host=127.0.0.1`；装进 WSL 用 `publish-linux.ps1` + `deploy-wsl.ps1`（需启用 systemd）
+
+### 变更
+
+- 说明书与脚本按 **WSL Ubuntu** 为主路径调整：Windows 经 localhost 连 WSL 内 PG；新增 `deploy-wsl.ps1`；`docs/本地开发与虚拟机.md` 改为 WSL + systemd 步骤
+
 ## 3.3.1 - 2026-10-27
 
 ### 升级到本版本要做什么

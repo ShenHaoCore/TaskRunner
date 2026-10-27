@@ -7,24 +7,16 @@
 
 ## 运行（开发，PostgreSQL 容器）
 
-**推荐布局（Windows）**：PostgreSQL 装在本机 **Ubuntu 虚拟机** 里，宿主机只跑 `dotnet run`，连接串 Host 填虚拟机 IP（须放行 `pg_hba` / `listen_addresses`）。逐步说明见 [docs/本地开发与虚拟机.md](docs/本地开发与虚拟机.md)。
+**推荐布局（Windows）**：PostgreSQL 装在本机 **WSL Ubuntu** 里，Windows 只跑 `dotnet run`；经 WSL localhost 镜像，连接串一般用 `Host=127.0.0.1`。须在 WSL 内放行 `pg_hba` / `listen_addresses`，并启用 systemd（装进 WSL 跑服务时）。逐步说明见 [docs/本地开发与虚拟机.md](docs/本地开发与虚拟机.md)。
 
 ```powershell
-# Windows：PG 在 Ubuntu VM（把 IP/密码换成你的）
-./scripts/setup-dev-secrets.ps1 -VmHost 192.168.56.10 -Password "你的密码"
+# Windows：PG 在 WSL（密码换成你的）
+./scripts/setup-dev-secrets.ps1 -VmHost 127.0.0.1 -Password "你的密码"
 dotnet test
 dotnet run --project src/TaskRunner.Api
 ```
 
-```bash
-# Mac 同样指到 VM；或临时用宿主机 Docker：
-# docker run -d --name taskrunner-pg -e POSTGRES_USER=taskrunner -e POSTGRES_PASSWORD=TaskRunner!2026 -e POSTGRES_DB=taskrunner -p 15432:5432 postgres:17
-# ./scripts/setup-dev-secrets.sh   # 无参数时默认 127.0.0.1:15432
-./scripts/setup-dev-secrets.sh --vm-host 192.168.56.10 --password '你的密码'
-dotnet run --project src/TaskRunner.Api
-```
-
-`setup-dev-secrets` 写入本机 User Secrets（Api/Worker 共用 `UserSecretsId`）。开发环境 Api 为 `Combined`，**不必**再开 Worker；与 VM 内 Worker **不要同时**连同一库抢 Server。
+`setup-dev-secrets` 写入本机 User Secrets（Api/Worker 共用 `UserSecretsId`）。开发环境 Api 为 `Combined`，**不必**再开 Worker；与 WSL 内 `taskrunner-worker` **不要同时**连同一库抢 Server。
 
 - 首页：http://localhost:5088
 - Dashboard：http://localhost:5088/taskrunner
@@ -82,21 +74,18 @@ dotnet run --project src/TaskRunner.Worker
 ./scripts/uninstall-worker-service.ps1
 ```
 
-Linux（Ubuntu / 本机虚拟机）部署：
+Linux / WSL 部署：
 
 ```powershell
-# Windows 宿主机
+# Windows → 本机 WSL（推荐）
 ./scripts/publish-linux.ps1
-./scripts/deploy-ubuntu-vm.ps1 -Target user@192.168.x.x
+./scripts/deploy-wsl.ps1
+
+# 或 SSH 到其它 Ubuntu
+./scripts/deploy-ubuntu-vm.ps1 -Target user@host
 ```
 
-```bash
-# Mac / Linux 宿主机
-./scripts/publish-linux.sh
-./scripts/deploy-ubuntu-vm.sh user@192.168.x.x
-```
-
-操作说明书（开发机 + 本机 Ubuntu 虚拟机逐步怎么做）：[docs/本地开发与虚拟机.md](docs/本地开发与虚拟机.md)。  
+操作说明书（Windows + WSL）：[docs/本地开发与虚拟机.md](docs/本地开发与虚拟机.md)。  
 服务器端细节见 [docs/deploy-ubuntu.md](docs/deploy-ubuntu.md)。
 
 ## 项目结构

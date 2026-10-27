@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 为本机开发写入 User Secrets（Api/Worker 共用 UserSecretsId）。
-# 常见布局：PostgreSQL 在 Ubuntu 虚拟机内，Host 填虚拟机 IP。
+# 常见布局：PostgreSQL 在 WSL Ubuntu内，Host 填WSL 地址（常用 127.0.0.1）。
 # 用法：
 #   ./scripts/setup-dev-secrets.sh 'Host=192.168.56.10;Port=5432;Database=taskrunner;Username=taskrunner;Password=...'
 #   ./scripts/setup-dev-secrets.sh --vm-host 192.168.56.10 --password '...'
@@ -51,7 +51,7 @@ echo "==> 写入 ConnectionStrings:Default（与 Worker 共享 UserSecretsId）"
 dotnet user-secrets set "ConnectionStrings:Default" "${CONNECTION_STRING}" --project "${API_PROJECT}"
 
 cat <<'EOF'
-完成。下一步（先开着装有 PG 的虚拟机）：
+完成。下一步（先开着WSL（PG 已启动））：
   dotnet run --project src/TaskRunner.Api
 Secrets 只存在本机，勿提交到仓库。
 EOF
