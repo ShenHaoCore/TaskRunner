@@ -19,7 +19,7 @@ if (-not (Test-Path $exe)) {
 
 $appsettings = Join-Path $out "appsettings.json"
 if (-not (Test-Path $appsettings)) {
-    Write-Error "Missing appsettings.json under publish output. Configure ConnectionStrings before install."
+    Write-Error "Missing appsettings.json under publish output (shared defaults). Set ConnectionStrings__Default via machine environment variables before start."
 }
 
 Write-Output "Stopping existing service if present..."
@@ -36,16 +36,16 @@ sc.exe description TaskRunner.Worker "TaskRunner Hangfire worker (Server role)"
 sc.exe failure TaskRunner.Worker reset= 86400 actions= restart/5000/restart/5000/restart/5000
 
 Write-Output ""
-Write-Output "Before starting, set the production connection string, for example:"
-Write-Output "  [Environment]::SetEnvironmentVariable('ConnectionStrings__Default', 'Host=...;Port=5432;Database=taskrunner;Username=...;Password=...', 'Machine')"
-Write-Output "  [Environment]::SetEnvironmentVariable('Hangfire__Storage', 'PostgreSql', 'Machine')"
+Write-Output "Before starting, set machine-level environment variables (do NOT edit $appsettings — upgrades overwrite it):"
+Write-Output "  [Environment]::SetEnvironmentVariable('ConnectionStrings__Default', 'Host=127.0.0.1;Port=5432;Database=taskrunner;Username=taskrunner;Password=...', 'Machine')"
+Write-Output "  [Environment]::SetEnvironmentVariable('Hangfire__AdminApiKey', '...', 'Machine')"
 Write-Output "  [Environment]::SetEnvironmentVariable('Hangfire__ReadOnlyMode', 'false', 'Machine')"
-Write-Output "Or edit: $appsettings"
+Write-Output "Same rule as Linux: one publish package for all hosts; per-machine secrets live only in env vars."
 Write-Output ""
 
 sc.exe start TaskRunner.Worker
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "Service created but failed to start. Check Event Viewer and $out\logs (or solution logs/worker)."
+    Write-Error "Service created but failed to start. Check Event Viewer and machine env (ConnectionStrings__Default). Logs: $out\logs (or solution logs/)."
 }
 
 Write-Output "Service TaskRunner.Worker installed and started. Startup type=Automatic; restart 5s after failure."
