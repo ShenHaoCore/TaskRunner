@@ -52,6 +52,7 @@ $expectedHash = (Get-FileHash -Algorithm SHA256 -Path $packagePath).Hash.ToLower
 $cmd = @"
 set -e
 rm -rf '$remoteDir' && mkdir -p '$remoteDir'
+rm -f '$remoteTar'
 cp '$wslPkg' '$remoteTar'
 actual=`$(sha256sum '$remoteTar' | cut -d' ' -f1)
 if [ "`$actual" != "$expectedHash" ]; then
@@ -64,10 +65,19 @@ if [ "`$actual" != "$expectedHash" ]; then
   exit 1
 fi
 tar -xzf '$remoteTar' -C '$remoteDir'
+echo "==> extract done"
+test -f '$remoteDir/deploy/install.sh'
+echo "==> install.sh present"
 rm -f '$remoteTar'
 sudo bash '$remoteDir/deploy/install.sh'
 "@
-wsl -d $Distro -- bash -lc $cmd
+# Windows 检出（CRLF）会把 \r 带进 here-string，先归一成 LF
+$cmd = $cmd -replace "`r", ""
+# PS 管道给原生程序时会在结尾补 \r\n：垫一行注释兜底，避免 \r 粘到 sudo 的路径上
+$cmd = $cmd + "`n# eof"
+# 脚本经 stdin 传给 bash -s：绕开 PS→wsl 的 argv 引号/换行转义坑
+$cmd | wsl -d $Distro -- bash -s
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Output ""
