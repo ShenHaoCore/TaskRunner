@@ -36,10 +36,10 @@ dotnet run --project src/TaskRunner.Api
 
 ## 新增任务
 
-实现 `IRecurringJob` 并标记 `[RecurringTask]`；可选 `[ExclusiveExecution(秒)]`。扩展程序集启动时传给 `AddTaskRunnerCore(..., extraAssemblies)`。重启 Api 后自动注册。
+实现 `IRecurringJob` 并标记 `[RecurringTask]`；可选 `[ExclusiveExecution(秒)]`、`Queue`（默认 `default`）。扩展程序集启动时传给 `AddTaskRunnerCore(..., extraAssemblies)`。重启 Api 后自动注册。
 
 ```csharp
-[RecurringTask("0 0 9 * * *", Description = "每日示例")]
+[RecurringTask("0 0 9 * * *", Description = "每日示例", Queue = "critical")]
 [ExclusiveExecution(3600)]
 public sealed class MyJob : IRecurringJob
 {
@@ -47,7 +47,9 @@ public sealed class MyJob : IRecurringJob
 }
 ```
 
-Cron 支持 5/6 位。已存在任务的 Cron / 启用状态以 `TaskConfigs` 为准。
+Cron 支持 5/6 位。已存在任务的 Cron / 启用状态以 `TaskConfigs` 为准；队列来自契约标注（同步覆盖，不可运维改）。Worker 订阅列表配置 `Hangfire:Queues`（默认 `["default"]`），未订阅的队列会积压。
+
+运维：`POST /api/tasks/{jobId}/trigger` 立即执行；body 传 `{ "runAt": "..." }` 或 `{ "delaySeconds": 60 }` 预约一次。浏览器可用 `/run.html` 过滤任务并一键运行（需先 `/login.html`）。
 
 ## PostgreSQL / 生产
 

@@ -19,6 +19,7 @@ public sealed class TaskRunnerDbContext(DbContextOptions<TaskRunnerDbContext> op
         task.Property(item => item.CronExpr).HasMaxLength(100).IsRequired();
         task.Property(item => item.JobType).HasMaxLength(500).IsRequired();
         task.Property(item => item.Description).HasMaxLength(500);
+        task.Property(item => item.Queue).HasMaxLength(100).IsRequired().HasDefaultValue("default");
         task.Property(item => item.IsEnabled).HasDefaultValue(true);
         task.Property(item => item.CreatedAt).IsRequired();
         task.Property(item => item.UpdatedAt).IsRequired();

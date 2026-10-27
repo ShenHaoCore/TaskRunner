@@ -83,14 +83,50 @@ public sealed class JobScannerTests
     public void Scan_IgnoresUnmarkedAndAbstractJobs()
     {
         var jobs = RecurringJobScanner.Scan(typeof(MarkedTestJob).Assembly);
-        Assert.Contains(jobs, job => job.JobId == "marked-test" && job.JobName == "标记任务");
+        Assert.Contains(jobs, job => job.JobId == "marked-test" && job.JobName == "标记任务" && job.Queue == "default");
         Assert.DoesNotContain(jobs, job => job.ClrType == typeof(UnmarkedRecurringJob));
         Assert.DoesNotContain(jobs, job => job.ClrType == typeof(AbstractRecurringJob));
+    }
+
+    [Fact]
+    public void Scan_CapturesDeclaredQueue()
+    {
+        var jobs = RecurringJobScanner.Scan(typeof(QueuedTestJob).Assembly);
+        Assert.Contains(jobs, job => job.JobId == "queued-test" && job.Queue == "critical");
+    }
+}
+
+public sealed class QueueNameGuardTests
+{
+    [Theory]
+    [InlineData(null, "default")]
+    [InlineData("", "default")]
+    [InlineData("  ", "default")]
+    [InlineData("critical", "critical")]
+    [InlineData(" low_1 ", "low_1")]
+    public void Normalize_MapsEmptyToDefault_AndTrims(string? input, string expected)
+    {
+        Assert.Equal(expected, QueueNameGuard.Normalize(input));
+    }
+
+    [Theory]
+    [InlineData("Critical")]
+    [InlineData("bad queue")]
+    [InlineData("a/b")]
+    public void Normalize_RejectsInvalidNames(string input)
+    {
+        Assert.Throws<ArgumentException>(() => QueueNameGuard.Normalize(input));
     }
 }
 
 [RecurringTask("*/15 * * * * *", Description = "测试任务", Name = "标记任务")]
 public sealed class MarkedTestJob : IRecurringJob
+{
+    public Task ExecuteAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+}
+
+[RecurringTask("*/15 * * * * *", JobId = "queued-test", Queue = "critical")]
+public sealed class QueuedTestJob : IRecurringJob
 {
     public Task ExecuteAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

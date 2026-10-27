@@ -83,6 +83,7 @@ sudo nano /etc/default/taskrunner
 | `ASPNETCORE_URLS` | 可选 | 默认 `http://127.0.0.1:5088`（仅本机，建议配 nginx 反代；要公网直连改 `http://0.0.0.0:5088`） |
 | `Hangfire__ReadOnlyMode` | 可选 | `true` 时所有写操作（含 Dashboard）被拦截，适合灾备只读实例 |
 | `Hangfire__WorkerCount` | 可选 | Worker 并发数，默认 5 |
+| `Hangfire__Queues__0` 等 | 可选 | Worker 订阅队列（默认仅 `default`）。任务声明了其它队列时，须在此列出，否则会积压 |
 | `Hangfire__CookieSecure` | 可选 | TLS 反代部署置 `true`（管理员 Cookie 仅经 HTTPS 传输），默认 `false` 兼容本机 http |
 
 启动并验证：

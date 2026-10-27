@@ -54,12 +54,49 @@ public sealed class TasksController(
 
     [HttpPost("{jobId}/trigger", Name = "TriggerTask")]
     [EndpointSummary("触发")]
-    public async Task<ActionResult<QueueJobResult>> Trigger(string jobId, CancellationToken cancellationToken)
+    [EndpointDescription("立即执行，或 body 传 runAt / delaySeconds 预约一次。")]
+    public async Task<ActionResult<QueueJobResult>> Trigger(
+        string jobId,
+        [FromBody] TriggerRequest? request,
+        CancellationToken cancellationToken)
     {
         var config = await repository.FindAsync(jobId, cancellationToken);
         if (config is null) { return NotFound(new { message = $"任务不存在：{jobId}" }); }
-        var queueJobId = scheduler.Enqueue(config.JobId, config.JobType);
-        return Ok(new QueueJobResult(config.JobId, queueJobId));
+
+        var queue = string.IsNullOrWhiteSpace(config.Queue) ? QueueNameGuard.Default : config.Queue;
+        if (request?.RunAt is null && request?.DelaySeconds is null)
+        {
+            var queueJobId = scheduler.Enqueue(config.JobId, config.JobType, queue);
+            return Ok(new QueueJobResult(config.JobId, queueJobId));
+        }
+
+        if (request.RunAt is not null && request.DelaySeconds is not null)
+        {
+            return BadRequest(new { message = "runAt 与 delaySeconds 不能同时指定。" });
+        }
+
+        DateTimeOffset runAt;
+        if (request.RunAt is not null)
+        {
+            runAt = request.RunAt.Value;
+        }
+        else
+        {
+            if (request.DelaySeconds is null or <= 0)
+            {
+                return BadRequest(new { message = "delaySeconds 必须为正整数。" });
+            }
+
+            runAt = DateTimeOffset.UtcNow.AddSeconds(request.DelaySeconds.Value);
+        }
+
+        if (runAt <= DateTimeOffset.UtcNow)
+        {
+            return BadRequest(new { message = "runAt 必须是未来时刻。" });
+        }
+
+        var scheduledId = scheduler.Schedule(config.JobId, config.JobType, queue, runAt);
+        return Ok(new QueueJobResult(config.JobId, scheduledId, Scheduled: true));
     }
 
     [HttpPost("{jobId}/pause", Name = "PauseTask")]
@@ -81,7 +118,7 @@ public sealed class TasksController(
         try { CronExpressionGuard.EnsureValid(config.CronExpr); }
         catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
         config = await repository.SetEnabledAsync(jobId, true, cancellationToken);
-        scheduler.AddOrUpdateRecurring(config!.JobId, config.JobType, config.CronExpr);
+        scheduler.AddOrUpdateRecurring(config!.JobId, config.JobType, config.CronExpr, config.Queue);
         return Ok(monitoring.ReadTasks([config])[0]);
     }
 
@@ -94,7 +131,7 @@ public sealed class TasksController(
         catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
         var config = await repository.UpdateCronAsync(jobId, request.Cron, cancellationToken);
         if (config is null) { return NotFound(new { message = $"任务不存在：{jobId}" }); }
-        if (config.IsEnabled) { scheduler.AddOrUpdateRecurring(config.JobId, config.JobType, config.CronExpr); }
+        if (config.IsEnabled) { scheduler.AddOrUpdateRecurring(config.JobId, config.JobType, config.CronExpr, config.Queue); }
         return Ok(monitoring.ReadTasks([config])[0]);
     }
 }

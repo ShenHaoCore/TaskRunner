@@ -54,6 +54,7 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
                     IsEnabled = job.EnabledByDefault,
                     JobType = job.JobType,
                     Description = job.Description,
+                    Queue = job.Queue,
                     CreatedAt = now,
                     UpdatedAt = now
                 });
@@ -76,6 +77,12 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
             if (!string.Equals(row.Description, job.Description, StringComparison.Ordinal))
             {
                 row.Description = job.Description;
+                changed = true;
+            }
+
+            if (!string.Equals(row.Queue, job.Queue, StringComparison.Ordinal))
+            {
+                row.Queue = job.Queue;
                 changed = true;
             }
 
