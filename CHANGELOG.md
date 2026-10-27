@@ -2,13 +2,19 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## Unreleased
+## 3.3.3 - 2026-10-27
+
+### 升级到本版本要做什么
+
+- **登录 Cookie 形态变化**：`/api/auth/login` 改为 ASP.NET 会话票据，Cookie 中**不再**是 ApiKey 明文；仍用旧「Cookie=密钥」方式的客户端需改为先 login，或改用 Header / Basic
+- 文件日志默认写在各宿主输出目录 `logs/`（`BaseDirectory`）；需要仓库根日志时用配置绝对路径覆盖
+- 可选：发布前选手跑 `./scripts/ef-database-update.ps1` / `.sh`（Api 启动仍会 `MigrateAsync`）
 
 ### 变更
 
 - 鉴权：`/api/auth/login` 改为 ASP.NET Cookie 会话票据（不再把 ApiKey 明文写入 Cookie）；Header / Basic 不变；`MatchesKey` 长度不一致时安全返回 false
 - 日志：Serilog 文件路径解析到 `AppContext.BaseDirectory/logs`，去掉依赖查找 `.sln` 的 `SetCurrentDirectory`
-- 迁移：保留 Api 启动 `MigrateAsync`；新增 `scripts/ef-database-update`（ps1/sh）供显式迁库
+- 迁移：保留 Api 启动 `MigrateAsync`；新增 `scripts/ef-database-update`（ps1/sh）供显式迁库；platform 票 03 / spec 同步 Cookie 会话语义
 
 ## 3.3.2 - 2026-10-27
 
