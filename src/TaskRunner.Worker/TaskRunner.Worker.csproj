@@ -3,6 +3,8 @@
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>TaskRunner.Worker</RootNamespace>
+    <!-- 与 Api 共用，本地连接串等只设一次 -->
+    <UserSecretsId>dd52fdfc-c6a8-4102-91fc-791812bb91fe</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -11,9 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\appsettings.shared.json" Link="appsettings.shared.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\appsettings.Development.shared.json" Link="appsettings.Development.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\appsettings.Production.shared.json" Link="appsettings.Production.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\appsettings.json" Link="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\appsettings.Development.json" Link="appsettings.Development.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
