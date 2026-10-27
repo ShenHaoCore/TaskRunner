@@ -173,6 +173,31 @@ public sealed class DocsGuardAndInfoTests
         Assert.Empty(catalog.RecurringJobs);
     }
 
+    [Fact]
+    public async Task Heartbeat_WithoutPingUrl_CompletesWithoutNetwork()
+    {
+        using var provider = BuildCoreProvider(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:Default"] = "Host=localhost;Database=taskrunner;Username=u;Password=p"
+        });
+
+        var job = provider.GetRequiredService<HeartbeatJob>();
+        await job.ExecuteAsync(CancellationToken.None); // 未配置 HeartbeatPingUrl：不应有任何网络行为
+    }
+
+    [Fact]
+    public async Task Heartbeat_WithUnreachablePingUrl_FailsTheJob()
+    {
+        using var provider = BuildCoreProvider(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:Default"] = "Host=localhost;Database=taskrunner;Username=u;Password=p",
+            ["Hangfire:HeartbeatPingUrl"] = "http://127.0.0.1:1/ping" // 端口 1：立即拒绝，验证 ping 行为生效
+        });
+
+        var job = provider.GetRequiredService<HeartbeatJob>();
+        await Assert.ThrowsAnyAsync<Exception>(() => job.ExecuteAsync(CancellationToken.None));
+    }
+
     private static ServiceProvider BuildCoreProvider(Dictionary<string, string?> settings)
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
