@@ -126,7 +126,7 @@ internal sealed class ContractApp : IDisposable
         builder.Services.AddSingleton<HangfireMonitoringReader>();
         builder.Services.AddScoped<ReadOnlyGuardFilter>();
         builder.Services.AddProblemDetails();
-        builder.Services.AddControllers(options => options.Filters.AddService<ReadOnlyGuardFilter>())
+        builder.Services.AddControllersWithViews(options => options.Filters.AddService<ReadOnlyGuardFilter>())
             .AddApplicationPart(typeof(TasksController).Assembly); // entry 是 testhost，需显式挂 Api 程序集
         builder.Services.AddOpenApi();
 

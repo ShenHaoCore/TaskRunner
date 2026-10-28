@@ -113,7 +113,7 @@ public sealed class DocsGuardAndInfoTests
         HttpStatusCode? limited = null;
         for (var attempt = 1; attempt <= 6; attempt++)
         {
-            var response = await app.Client.PostAsJsonAsync("/api/auth/login", new { apiKey = "wrong-key" });
+            var response = await app.Client.PostAsJsonAsync("/api/auth/login", new { username = "admin", password = "wrong-key" });
             if (response.StatusCode == HttpStatusCode.TooManyRequests)
             {
                 limited = response.StatusCode;
@@ -134,7 +134,7 @@ public sealed class DocsGuardAndInfoTests
         HttpStatusCode? limited = null;
         for (var attempt = 1; attempt <= 8; attempt++)
         {
-            var response = await app.Client.PostAsJsonAsync("/api/auth/login", new { apiKey = "whatever" });
+            var response = await app.Client.PostAsJsonAsync("/api/auth/login", new { username = "admin", password = "whatever" });
             if (response.StatusCode == HttpStatusCode.TooManyRequests)
             {
                 limited = response.StatusCode;
