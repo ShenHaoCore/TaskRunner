@@ -2,6 +2,12 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 3.7.1 - 2026-10-29
+
+### 修复
+
+- 未登录的浏览器访问 Hangfire Dashboard（`/taskrunner`）时 302 重定向到 `/login`（携带 returnUrl，登录后回到原页面）；机器请求（Accept 非 text/html）保持 401 + Basic 质询。此前浏览器会弹出 Basic 认证框
+
 ## 3.7.0 - 2026-10-29
 
 ### 升级到本版本要做什么
