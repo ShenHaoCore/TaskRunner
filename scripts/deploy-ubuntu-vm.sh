@@ -64,6 +64,8 @@ cat <<EOF
 
 远端安装脚本已跑完。若提示 CHANGE_ME：
   ssh ${TARGET}
-  sudo nano /etc/default/taskrunner    # 只改本机 env，不要改 /opt/taskrunner/**/appsettings.json
+  sudo nano /etc/default/taskrunner      # ConnectionStrings__Default
+  sudo nano /etc/default/taskrunner-api  # Hangfire__AdminApiKey
+  # 只改本机 env，不要改 /opt/taskrunner/**/appsettings.json
   sudo systemctl start taskrunner-api taskrunner-worker
 EOF

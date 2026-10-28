@@ -2,6 +2,18 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 3.6.0 - 2026-10-28
+
+### 升级到本版本要做什么
+
+- Linux：重跑 `install.sh` 后配置拆为 `/etc/default/taskrunner`（连接串）+ `taskrunner-api` / `taskrunner-worker`；旧单文件会自动迁移拆分。填完 `CHANGE_ME` 再 start
+- 运维页路径改为 `/` `/login` `/run`（MVC）；旧 `*.html` 书签失效
+
+### 变更
+
+- 运维页改为 MVC（`/` `/login` `/run`）共享 `_Layout`，保留 Hangfire Dashboard 同款风格；去掉静态 `*.html`
+- 生产 env 按角色拆分：共享连接串 + Api 鉴权 + Worker 队列/并发；AdminApiKey 不再进入 Worker 单元
+
 ## 3.5.0 - 2026-10-28
 
 ### 升级到本版本要做什么

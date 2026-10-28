@@ -11,8 +11,9 @@ Group=taskrunner
 WorkingDirectory=/opt/taskrunner/worker
 Environment=ASPNETCORE_ENVIRONMENT=Production
 EnvironmentFile=-/etc/default/taskrunner
-# 占位符未改完则拒绝启动；只改 /etc/default/taskrunner，勿改包内 appsettings
-ExecStartPre=/usr/bin/bash -c 'test -f /etc/default/taskrunner && ! grep -q CHANGE_ME /etc/default/taskrunner || { echo "Edit /etc/default/taskrunner (replace CHANGE_ME); do not edit appsettings.json" >&2; exit 1; }'
+EnvironmentFile=-/etc/default/taskrunner-worker
+# 占位符未改完则拒绝启动；只改 /etc/default/taskrunner*，勿改包内 appsettings
+ExecStartPre=/usr/bin/bash -c 'for f in /etc/default/taskrunner /etc/default/taskrunner-worker; do test -f "$f" && ! grep -q CHANGE_ME "$f" || { echo "Edit $f (replace CHANGE_ME); do not edit appsettings.json" >&2; exit 1; }; done'
 ExecStart=/opt/taskrunner/worker/TaskRunner.Worker
 Restart=on-failure
 RestartSec=5
