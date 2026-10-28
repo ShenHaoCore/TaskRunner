@@ -135,6 +135,26 @@ public sealed class AuthReadOnlyTests
         Assert.Contains("任务调度中心", await response.Content.ReadAsStringAsync());
     }
 
+    [Fact]
+    public async Task Dashboard_AnonymousBrowser_RedirectsToLogin_WithReturnUrl()
+    {
+        using var app = NewApp();
+
+        var browserLike = NewClient(app);
+        browserLike.DefaultRequestHeaders.Accept.ParseAdd("text/html");
+
+        var response = await browserLike.GetAsync("/taskrunner");
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.StartsWith("/login?returnUrl=", response.Headers.Location!.ToString());
+        Assert.NotNull(response.Headers.Location);
+        Assert.StartsWith("/login?returnUrl=", response.Headers.Location!.ToString());
+
+        // 机器请求（无 text/html Accept）仍保持 401 + Basic 质询
+        var machine = NewClient(app);
+        var machineResponse = await machine.GetAsync("/taskrunner");
+        Assert.Equal(HttpStatusCode.Unauthorized, machineResponse.StatusCode);
+    }
+
     private static ContractApp NewApp(bool readOnly = false) => readOnly
         ? new ContractApp(Environments.Production,
             ("Hangfire:AdminApiKey", Key),
