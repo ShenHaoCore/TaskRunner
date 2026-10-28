@@ -79,7 +79,9 @@ sudo nano /etc/default/taskrunner-worker   # 仅 Worker（可选覆盖）
 | 文件 | 变量 | 必填 | 说明 |
 |------|------|:----:|------|
 | `taskrunner` | `ConnectionStrings__Default` | ✅ | PostgreSQL 连接串；Api 与 Worker 必须一致 |
-| `taskrunner-api` | `Hangfire__AdminApiKey` | ✅ | 管理员密钥。**未配置时 Api 生产环境启动即失败**（fail-fast） |
+| `taskrunner-api` | `Hangfire__AdminApiKey` | ✅ | 管理员密钥（机器调用：`X-TaskRunner-Admin` 头 / Basic）。**未配置时 Api 生产环境启动即失败**（fail-fast） |
+| `taskrunner-api` | `Hangfire__AdminUsername` | 可选 | `/login` 表单登录账号，默认 `admin` |
+| `taskrunner-api` | `Hangfire__AdminPassword` | 建议 | `/login` 表单登录密码；未配置时启动记录警告、登录页给出引导（机器密钥不受影响） |
 | `taskrunner-api` | `ASPNETCORE_URLS` | 可选 | 默认单元内 `http://127.0.0.1:5088`；公网直连可改 `http://0.0.0.0:5088` |
 | `taskrunner-api` | `Hangfire__ReadOnlyMode` | 可选 | `true` 时写操作（含 Dashboard）被拦截 |
 | `taskrunner-api` | `Hangfire__CookieSecure` | 可选 | TLS 反代置 `true`，默认 `false` |

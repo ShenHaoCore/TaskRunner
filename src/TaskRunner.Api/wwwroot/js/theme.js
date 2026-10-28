@@ -2,7 +2,7 @@
     const toggle = document.getElementById("theme-toggle");
     if (!toggle) return;
     const syncIcon = () => {
-        toggle.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀ 主题" : "☾ 主题";
+        toggle.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀" : "☾";
     };
     toggle.addEventListener("click", () => {
         const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";

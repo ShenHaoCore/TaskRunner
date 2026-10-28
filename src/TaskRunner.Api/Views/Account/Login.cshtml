@@ -1,0 +1,35 @@
+@model TaskRunner.Api.Controllers.AccountController.LoginViewModel
+
+<div class="login-wrap">
+    <div class="card login-card">
+        <div class="login-head">
+            <img class="login-mark" src="~/mark.svg" alt="" />
+            <h1>管理员登录</h1>
+        </div>
+        <p class="login-sub">
+            登录后签发加密会话 Cookie（不含密钥明文），Dashboard、运行台与运维接口在本浏览器内免鉴权访问。
+        </p>
+
+        <div asp-validation-summary="All" class="validation" role="alert"></div>
+
+        <form asp-controller="Account" asp-action="Login" method="post">
+            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+            <div class="field">
+                <label for="username">账号</label>
+                <input class="input" id="username" name="username" value="@(ViewBag.Username as string)"
+                       autocomplete="username" autofocus required />
+            </div>
+            <div class="field">
+                <label for="password">密码</label>
+                <input class="input" id="password" name="password" type="password"
+                       autocomplete="current-password" required />
+            </div>
+            <button class="btn btn-primary btn-block" type="submit">登录并打开 Dashboard</button>
+        </form>
+
+        <p class="field-hint">
+            凭据来自生产配置 <code>Hangfire:AdminUsername</code> / <code>Hangfire:AdminPassword</code>；
+            机器调用请改用 <code>X-TaskRunner-Admin</code> 密钥。
+        </p>
+    </div>
+</div>
