@@ -7,7 +7,9 @@ public sealed record UpdateCronRequest
 
 public sealed record AdminLoginRequest
 {
-    public required string ApiKey { get; init; }
+    public required string Username { get; init; }
+
+    public required string Password { get; init; }
 }
 
 public sealed record QueueJobResult(string JobId, string QueueJobId, bool Scheduled = false);

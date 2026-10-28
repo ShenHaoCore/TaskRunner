@@ -29,15 +29,14 @@ public sealed class AuthController(IOptions<TaskRunnerOptions> options, IHostEnv
             return Ok(new { message = "Development 环境已写入会话 Cookie。" });
         }
 
-        var key = options.Value.AdminApiKey;
-        if (string.IsNullOrEmpty(key) || !AdminCredentials.MatchesKey(request.ApiKey, key))
+        if (!AdminCredentials.VerifyLogin(request.Username, request.Password, options.Value))
         {
-            return Unauthorized(new { message = "ApiKey 无效。" });
+            return Unauthorized(new { message = "账号或密码无效。" });
         }
 
         await HttpContext.SignInAsync(
             AdminAuthDefaults.CookieScheme,
-            AdminCredentials.CreatePrincipal("cookie", AdminAuthDefaults.CookieScheme));
+            AdminCredentials.CreatePrincipal(request.Username, AdminAuthDefaults.CookieScheme));
         return Ok(new { message = "已登录。可打开 Dashboard。" });
     }
 

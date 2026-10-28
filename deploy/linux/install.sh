@@ -117,10 +117,14 @@ if [[ ! -f ${API_ENV} ]]; then
   echo "==> 生成 Api 配置 ${API_ENV}"
   cat > "${API_ENV}" <<'EOF'
 # TaskRunner Api（鉴权 / Dashboard）。改完：sudo systemctl restart taskrunner-api
+# AdminApiKey：机器调用（X-TaskRunner-Admin 头 / Basic）；AdminUsername/AdminPassword：/login 表单登录
 Hangfire__AdminApiKey='CHANGE_ME'
+Hangfire__AdminUsername='admin'
+Hangfire__AdminPassword='CHANGE_ME'
 # ASPNETCORE_URLS='http://0.0.0.0:5088'
 # Hangfire__ReadOnlyMode='false'
 # Hangfire__CookieSecure='true'   # TLS 反代时置 true
+# Hangfire__HeartbeatPingUrl=''   # 心跳死信开关（healthchecks.io check URL），留空不 ping
 EOF
   chmod 600 "${API_ENV}"
 fi
