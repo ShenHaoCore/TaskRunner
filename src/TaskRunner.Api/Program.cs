@@ -33,7 +33,7 @@ builder.Services.AddHostedService<RecurringJobBootstrapper>();
 builder.Services.AddSingleton<HangfireMonitoringReader>();
 builder.Services.AddScoped<ReadOnlyGuardFilter>();
 builder.Services.AddProblemDetails();
-builder.Services.AddControllers(options => options.Filters.AddService<ReadOnlyGuardFilter>());
+builder.Services.AddControllersWithViews(options => options.Filters.AddService<ReadOnlyGuardFilter>());
 builder.Services.AddOpenApi();
 
 var app = builder.Build();

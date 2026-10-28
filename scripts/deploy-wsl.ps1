@@ -83,6 +83,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Output ""
 Write-Output "If install asked for CHANGE_ME, inside WSL run:"
 Write-Output "  wsl -d $Distro"
-Write-Output "  sudo nano /etc/default/taskrunner"
+Write-Output "  sudo nano /etc/default/taskrunner      # ConnectionStrings__Default"
+Write-Output "  sudo nano /etc/default/taskrunner-api  # Hangfire__AdminApiKey"
 Write-Output "  sudo systemctl start taskrunner-api taskrunner-worker"
 Write-Output "PG + services are in WSL; Windows secrets should use Host=127.0.0.1 (localhost relay)."

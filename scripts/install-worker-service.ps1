@@ -38,8 +38,8 @@ sc.exe failure TaskRunner.Worker reset= 86400 actions= restart/5000/restart/5000
 Write-Output ""
 Write-Output "Before starting, set machine-level environment variables (do NOT edit $appsettings — upgrades overwrite it):"
 Write-Output "  [Environment]::SetEnvironmentVariable('ConnectionStrings__Default', 'Host=127.0.0.1;Port=5432;Database=taskrunner;Username=taskrunner;Password=...', 'Machine')"
-Write-Output "  [Environment]::SetEnvironmentVariable('Hangfire__AdminApiKey', '...', 'Machine')"
-Write-Output "  [Environment]::SetEnvironmentVariable('Hangfire__ReadOnlyMode', 'false', 'Machine')"
+Write-Output "  # optional Worker knobs: Hangfire__WorkerCount, Hangfire__Queues__0=..."
+Write-Output "AdminApiKey / ReadOnlyMode belong on the Api host, not this Worker service."
 Write-Output "Same rule as Linux: one publish package for all hosts; per-machine secrets live only in env vars."
 Write-Output ""
 

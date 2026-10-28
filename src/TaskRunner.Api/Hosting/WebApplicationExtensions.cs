@@ -49,18 +49,7 @@ public static class WebApplicationExtensions
         });
 
         app.UseExceptionHandler();
-        app.UseDefaultFiles();
-        app.UseStaticFiles(new StaticFileOptions
-        {
-            OnPrepareResponse = static context =>
-            {
-                if (context.File.Name.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
-                {
-                    context.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
-                    context.Context.Response.ContentType = "text/html; charset=utf-8";
-                }
-            }
-        });
+        app.UseStaticFiles();
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseRateLimiter();

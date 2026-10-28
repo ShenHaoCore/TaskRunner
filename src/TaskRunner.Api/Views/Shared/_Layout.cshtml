@@ -1,0 +1,71 @@
+@{
+    var navActive = ViewData["NavActive"] as string ?? "";
+    var minimalNav = ViewData["MinimalNav"] as bool? == true;
+}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@(ViewData["Title"] ?? "TaskRunner")</title>
+    <link rel="icon" href="~/mark.svg" type="image/svg+xml" />
+    <script>
+        // 主题初始化须在样式应用前完成，避免闪烁
+        document.documentElement.setAttribute(
+            "data-theme",
+            localStorage.getItem("tr-theme") === "dark" ? "dark" : "light");
+    </script>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body>
+    <div id="wrap">
+        <div class="navbar navbar-inverse navbar-fixed-top@(minimalNav ? " navbar-minimal" : "")">
+            <div class="container">
+                <div class="navbar-header">
+                    <a class="navbar-brand" href="/">TaskRunner</a>
+                </div>
+                @if (!minimalNav)
+                {
+                    <ul class="nav navbar-nav navbar-right">
+                        <li class="@(navActive == "home" ? "active" : null)"><a href="/">仪表盘</a></li>
+                        <li class="@(navActive == "run" ? "active" : null)"><a href="/run">运行台</a></li>
+                        <li class="@(navActive == "login" ? "active" : null)"><a href="/login">登录</a></li>
+                    </ul>
+                    @if (ViewData["ShowRoleBadge"] as bool? == true)
+                    {
+                        <span class="navbar-text" id="role-badge"><span id="role-text">加载中</span></span>
+                    }
+                }
+                <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换亮暗主题">☾ 主题</button>
+            </div>
+        </div>
+
+        @RenderBody()
+    </div>
+
+    <div id="footer">
+        <div class="container">
+            @if (minimalNav)
+            {
+                <div class="credit credit-center"><a href="/">← 返回首页</a></div>
+            }
+            else if (navActive == "run")
+            {
+                <div class="credit">
+                    <a href="/">← 返回首页</a> · <a href="/login">登录</a> · TaskRunner 运行台 · 基于 Hangfire
+                </div>
+            }
+            else
+            {
+                <div class="credit">
+                    TaskRunner<span id="version"></span> · 生产形态 Api + Worker 双服务 · <a href="/info">/info</a> · <a href="/health">/health</a>
+                </div>
+            }
+        </div>
+    </div>
+
+    <script src="~/js/theme.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

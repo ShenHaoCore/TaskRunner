@@ -1,0 +1,50 @@
+@section Styles {
+    <link rel="stylesheet" href="~/css/run.css" asp-append-version="true" />
+}
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="block" id="stats">
+                <div class="list-group">
+                    <a class="list-group-item" href="/">仪表盘</a>
+                    <a class="list-group-item" href="/taskrunner">Hangfire Dashboard</a>
+                    <a class="list-group-item active" href="/run">任务运行台</a>
+                    <a class="list-group-item" href="/api/tasks">任务 API</a>
+                    <a class="list-group-item" href="/login">管理员登录</a>
+                    <a class="list-group-item" href="/info">/info</a>
+                    <a class="list-group-item" href="/health">/health</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-9">
+            <div class="page-header">
+                <h1>任务运行台 <small>按名称过滤已注册任务，一键立即运行，需管理员登录会话</small></h1>
+            </div>
+
+            <div class="alert" id="banner" role="status" hidden></div>
+
+            <div class="btn-toolbar-top toolbar">
+                <input id="filter" class="form-control" type="search" placeholder="过滤 JobId / 显示名…" autocomplete="off" />
+                <button class="btn btn-default" type="button" id="reload">刷新</button>
+            </div>
+
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>任务</th>
+                        <th class="hide-sm">队列</th>
+                        <th>状态</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="rows"></tbody>
+            </table>
+            <div class="well" id="empty" hidden>没有匹配的任务。</div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/run.js" asp-append-version="true"></script>
+}

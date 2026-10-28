@@ -49,7 +49,7 @@ public sealed class MyJob : IRecurringJob
 
 Cron 支持 5/6 位。已存在任务的 Cron / 启用状态以 `TaskConfigs` 为准；队列来自契约标注（同步覆盖，不可运维改）。Worker 订阅列表配置 `Hangfire:Queues`（默认 `["default"]`），未订阅的队列会积压。
 
-运维：`POST /api/tasks/{jobId}/trigger` 立即执行；body 传 `{ "runAt": "..." }` 或 `{ "delaySeconds": 60 }` 预约一次。浏览器可用 `/run.html` 过滤任务并一键运行（需先 `/login.html`）。
+运维：`POST /api/tasks/{jobId}/trigger` 立即执行；body 传 `{ "runAt": "..." }` 或 `{ "delaySeconds": 60 }` 预约一次。浏览器可用 `/run` 过滤任务并一键运行（需先 `/login`）。
 
 ## PostgreSQL / 生产
 
@@ -62,7 +62,7 @@ Cron 支持 5/6 位。已存在任务的 Cron / 启用状态以 `TaskConfigs` �
 | 场景 | 放哪里 | 不要改 |
 |------|--------|--------|
 | 开发 | User Secrets（见上方） | `src/appsettings*.json` |
-| Linux 生产 | `/etc/default/taskrunner`（`ConnectionStrings__Default`、`Hangfire__AdminApiKey` 等） | `/opt/taskrunner/**/appsettings*.json` |
+| Linux 生产 | `/etc/default/taskrunner`（连接串）+ `taskrunner-api` / `taskrunner-worker` | `/opt/taskrunner/**/appsettings*.json` |
 | Windows 生产 | 机器级环境变量（见 `scripts/install-worker-service.ps1` 提示） | 发布目录里的 `appsettings.json` |
 
 建议各机约定：PG 在本机 `127.0.0.1:5432`、库/用户均为 `taskrunner`，**只有密码与 AdminApiKey 因机而异**。升级只覆盖程序目录，不动本机 env。本仓库当前不使用 Redis；若其他服务用本机 Redis，同样用该服务自己的本机 env，不要往本仓塞按机器分叉的 JSON。

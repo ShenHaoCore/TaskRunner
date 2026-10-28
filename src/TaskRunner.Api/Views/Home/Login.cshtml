@@ -1,0 +1,28 @@
+@section Styles {
+    <link rel="stylesheet" href="~/css/login.css" asp-append-version="true" />
+}
+
+<div class="container">
+    <div class="login-box">
+        <div class="page-header">
+            <h1>管理员登录</h1>
+        </div>
+        <p style="color:var(--text-secondary)">
+            登录后签发加密会话 Cookie（不含密钥明文），Dashboard 与运维接口在本浏览器内免弹窗访问。
+        </p>
+
+        <form id="login-form">
+            <div class="form-group">
+                <label for="api-key">管理员密钥</label>
+                <input type="password" id="api-key" name="apiKey" class="form-control" autocomplete="current-password" autofocus required />
+                <span class="help-block">即生产配置 <code>Hangfire:AdminApiKey</code>（服务器上位于 <code>/etc/default/taskrunner-api</code>）。</span>
+            </div>
+            <p class="alert alert-danger" id="error" aria-live="polite" hidden></p>
+            <button class="btn btn-primary btn-block" type="submit" id="submit">登录并打开 Dashboard</button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/login.js" asp-append-version="true"></script>
+}
