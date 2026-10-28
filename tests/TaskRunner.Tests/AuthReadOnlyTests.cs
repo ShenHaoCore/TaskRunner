@@ -16,6 +16,8 @@ namespace TaskRunner.Tests;
 public sealed class AuthReadOnlyTests
 {
     private const string Key = "demo-key";
+    private const string Username = "admin";
+    private const string Password = "demo-pass";
 
     [Fact]
     public async Task Requests_WithoutCredentials_AreRejected()
@@ -40,7 +42,7 @@ public sealed class AuthReadOnlyTests
 
         var viaBasic = NewClient(app);
         viaBasic.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"admin:{Key}")));
+            "Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{Username}:{Key}")));
 
         foreach (var client in new[] { viaHeader, viaCookie, viaBasic })
         {
@@ -52,31 +54,28 @@ public sealed class AuthReadOnlyTests
     }
 
     [Fact]
-    public async Task LoginCookie_IsNotRawApiKey()
+    public async Task LoginCookie_IsNotRawPassword()
     {
         using var app = NewApp();
-        var login = await NewClient(app).PostAsJsonAsync("/api/auth/login", new { apiKey = Key });
+        var login = await NewClient(app).PostAsJsonAsync("/api/auth/login", new { username = Username, password = Password });
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
 
         Assert.True(login.Headers.TryGetValues("Set-Cookie", out var setCookies));
         var cookieHeader = string.Join("; ", setCookies);
         Assert.Contains(AdminAuthDefaults.CookieName, cookieHeader, StringComparison.Ordinal);
-        Assert.DoesNotContain(Key, cookieHeader, StringComparison.Ordinal);
+        Assert.DoesNotContain(Password, cookieHeader, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task WrongKey_Returns401_WithoutLeakingSecret()
+    public async Task WrongPassword_Returns401_WithoutLeakingSecret()
     {
         using var app = NewApp();
 
-        var client = NewClient(app);
-        client.DefaultRequestHeaders.Add(AdminAuthDefaults.HeaderName, "wrong-key");
+        var login = await NewClient(app).PostAsJsonAsync("/api/auth/login", new { username = Username, password = "wrong-pass" });
+        Assert.Equal(HttpStatusCode.Unauthorized, login.StatusCode);
 
-        var response = await client.GetAsync("/api/tasks");
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.DoesNotContain(Key, body);
+        var body = await login.Content.ReadAsStringAsync();
+        Assert.DoesNotContain(Password, body);
     }
 
     [Fact]
@@ -137,8 +136,15 @@ public sealed class AuthReadOnlyTests
     }
 
     private static ContractApp NewApp(bool readOnly = false) => readOnly
-        ? new ContractApp(Environments.Production, ("Hangfire:AdminApiKey", Key), ("Hangfire:ReadOnlyMode", "true"))
-        : new ContractApp(Environments.Production, ("Hangfire:AdminApiKey", Key));
+        ? new ContractApp(Environments.Production,
+            ("Hangfire:AdminApiKey", Key),
+            ("Hangfire:AdminUsername", Username),
+            ("Hangfire:AdminPassword", Password),
+            ("Hangfire:ReadOnlyMode", "true"))
+        : new ContractApp(Environments.Production,
+            ("Hangfire:AdminApiKey", Key),
+            ("Hangfire:AdminUsername", Username),
+            ("Hangfire:AdminPassword", Password));
 
     private static HttpClient NewClient(ContractApp app) => app.CreateClient();
 
@@ -151,7 +157,7 @@ public sealed class AuthReadOnlyTests
     private static async Task<HttpClient> LoginClientAsync(ContractApp app)
     {
         var client = NewClient(app);
-        var login = await client.PostAsJsonAsync("/api/auth/login", new { apiKey = Key });
+        var login = await client.PostAsJsonAsync("/api/auth/login", new { username = Username, password = Password });
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         Assert.True(login.Headers.TryGetValues("Set-Cookie", out var setCookies));
 

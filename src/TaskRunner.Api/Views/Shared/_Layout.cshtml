@@ -1,6 +1,12 @@
+@using Microsoft.Extensions.Options
+@using TaskRunner.Core.Common
+@inject IOptions<TaskRunnerOptions> HangfireOptions
+@inject IHostEnvironment HostEnv
 @{
     var navActive = ViewData["NavActive"] as string ?? "";
-    var minimalNav = ViewData["MinimalNav"] as bool? == true;
+    var dashboardPath = HangfireOptions.Value.NormalizeDashboardPath();
+    var readOnly = HangfireOptions.Value.ReadOnlyMode;
+    var authenticated = User.Identity?.IsAuthenticated == true;
 }
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -10,60 +16,58 @@
     <title>@(ViewData["Title"] ?? "TaskRunner")</title>
     <link rel="icon" href="~/mark.svg" type="image/svg+xml" />
     <script>
-        // 主题初始化须在样式应用前完成，避免闪烁
+        // 主题初始化须在样式应用前完成，避免闪烁（Linear 深色为默认）
         document.documentElement.setAttribute(
             "data-theme",
-            localStorage.getItem("tr-theme") === "dark" ? "dark" : "light");
+            localStorage.getItem("tr-theme") === "light" ? "light" : "dark");
     </script>
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    @await RenderSectionAsync("Styles", required: false)
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
 </head>
 <body>
-    <div id="wrap">
-        <div class="navbar navbar-inverse navbar-fixed-top@(minimalNav ? " navbar-minimal" : "")">
-            <div class="container">
-                <div class="navbar-header">
-                    <a class="navbar-brand" href="/">TaskRunner</a>
-                </div>
-                @if (!minimalNav)
-                {
-                    <ul class="nav navbar-nav navbar-right">
-                        <li class="@(navActive == "home" ? "active" : null)"><a href="/">仪表盘</a></li>
-                        <li class="@(navActive == "run" ? "active" : null)"><a href="/run">运行台</a></li>
-                        <li class="@(navActive == "login" ? "active" : null)"><a href="/login">登录</a></li>
-                    </ul>
-                    @if (ViewData["ShowRoleBadge"] as bool? == true)
-                    {
-                        <span class="navbar-text" id="role-badge"><span id="role-text">加载中</span></span>
-                    }
-                }
-                <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换亮暗主题">☾ 主题</button>
-            </div>
-        </div>
-
-        @RenderBody()
-    </div>
-
-    <div id="footer">
-        <div class="container">
-            @if (minimalNav)
+    <div class="top-nav">
+        <div class="container nav-inner">
+            <a class="brand" href="/"><img class="brand-mark" src="~/mark.svg" alt="" />TaskRunner</a>
+            <nav class="nav-links" aria-label="主导航">
+                <a href="/" class="@(navActive == "home" ? "active" : null)">仪表盘</a>
+                <a href="/run" class="@(navActive == "run" ? "active" : null)">运行台</a>
+                <a href="@dashboardPath">Dashboard</a>
+                <a href="/api/tasks">任务 API</a>
+            </nav>
+            <span class="nav-spacer"></span>
+            <span class="status-badge">@HostEnv.EnvironmentName@(readOnly ? " · 只读" : "")</span>
+            <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换亮暗主题">☾</button>
+            @if (authenticated)
             {
-                <div class="credit credit-center"><a href="/">← 返回首页</a></div>
-            }
-            else if (navActive == "run")
-            {
-                <div class="credit">
-                    <a href="/">← 返回首页</a> · <a href="/login">登录</a> · TaskRunner 运行台 · 基于 Hangfire
-                </div>
+                <span class="nav-user">@User.Identity?.Name</span>
+                <form method="post" asp-controller="Account" asp-action="Logout" class="inline-form">
+                    <button type="submit" class="btn btn-secondary btn-sm">退出</button>
+                </form>
             }
             else
             {
-                <div class="credit">
-                    TaskRunner<span id="version"></span> · 生产形态 Api + Worker 双服务 · <a href="/info">/info</a> · <a href="/health">/health</a>
-                </div>
+                <a class="btn btn-primary btn-sm" href="/login">登录</a>
             }
         </div>
     </div>
+
+    <main class="container page">
+        @if (TempData["Flash"] is string flashOk)
+        {
+            <div class="flash flash-success" role="status">@flashOk</div>
+        }
+        @if (TempData["FlashError"] is string flashErr)
+        {
+            <div class="flash flash-danger" role="alert">@flashErr</div>
+        }
+        @RenderBody()
+    </main>
+
+    <footer class="foot">
+        <div class="container foot-inner">
+            <span>TaskRunner · 生产形态 Api + Worker 双服务</span>
+            <span><a href="/info">/info</a> · <a href="/health">/health</a></span>
+        </div>
+    </footer>
 
     <script src="~/js/theme.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)

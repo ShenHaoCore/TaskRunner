@@ -62,6 +62,35 @@ public static class AdminCredentials
         }
     }
 
+    /// <summary>
+    /// 账号密码校验：两侧先 SHA-256 再恒定时间比较——长度差异不再泄漏，且与
+    /// MatchesKey 的逐字节比较同级安全。生产未配置密码时直接拒绝。
+    /// </summary>
+    public static bool VerifyLogin(string username, string password, TaskRunnerOptions options)
+    {
+        var configuredPassword = options.AdminPassword;
+        if (string.IsNullOrEmpty(configuredPassword))
+        {
+            return false;
+        }
+
+        return FixedTimeHash(username, options.AdminUsername)
+            && FixedTimeHash(password, configuredPassword);
+    }
+
+    /// <summary>摘要后恒定时间比较；任意一侧为空立即 false。</summary>
+    private static bool FixedTimeHash(string candidate, string configured)
+    {
+        if (string.IsNullOrEmpty(candidate) || string.IsNullOrEmpty(configured))
+        {
+            return false;
+        }
+
+        var left = SHA256.HashData(Encoding.UTF8.GetBytes(candidate));
+        var right = SHA256.HashData(Encoding.UTF8.GetBytes(configured));
+        return CryptographicOperations.FixedTimeEquals(left, right);
+    }
+
     /// <summary>恒定时间比较；长度不同立即 false（避免 FixedTimeEquals 抛异常）。</summary>
     public static bool MatchesKey(string candidate, string adminApiKey)
     {

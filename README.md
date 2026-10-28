@@ -30,7 +30,7 @@ dotnet run --project src/TaskRunner.Api
 | 环境 | 行为 |
 |------|------|
 | Development | Dashboard / 写操作免密钥 |
-| Production | 配置 `Hangfire:AdminApiKey`；写 API 用头 `X-TaskRunner-Admin`，或 `/api/auth/login` 签发会话 Cookie（非密钥明文）；Dashboard 可用 Basic（密码=ApiKey） |
+| Production | 配置 `Hangfire:AdminApiKey`（机器调用：头 `X-TaskRunner-Admin` 或 Basic）；浏览器用 `/login` 表单，凭 `Hangfire:AdminUsername` / `Hangfire:AdminPassword` 登录签发会话 Cookie（非明文密码） |
 
 只读由配置 `Hangfire:ReadOnlyMode` 控制（改配置需重启）。
 

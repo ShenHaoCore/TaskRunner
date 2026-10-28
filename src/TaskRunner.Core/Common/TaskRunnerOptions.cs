@@ -24,6 +24,13 @@ public sealed class TaskRunnerOptions
 
     public string? AdminApiKey { get; set; }
 
+    /// <summary>交互式登录账号（MVC /login 表单）。缺省 admin；修改需重启。</summary>
+    public string AdminUsername { get; set; } = "admin";
+
+    /// <summary>交互式登录密码（MVC /login 表单）。生产未配置时启动记录警告、登录页给出引导；
+    /// 机器调用仍走 AdminApiKey（Header / Basic），两者互不影响。修改需重启。</summary>
+    public string? AdminPassword { get; set; }
+
     /// <summary>Hangfire 已成功/已删除作业的保留分钟数（默认 60）。</summary>
     public int SucceededJobExpirationMinutes { get; set; } = 60;
 

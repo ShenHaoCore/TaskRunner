@@ -1,0 +1,55 @@
+@model TaskRunner.Api.Controllers.RunController.RunIndexViewModel
+
+<section class="page-head">
+    <p class="eyebrow">运维</p>
+    <h1>任务运行台</h1>
+    <p class="subhead">按名称过滤已注册任务，一键立即运行。需管理员会话；只读模式下触发被禁用。</p>
+</section>
+
+<form method="get" class="toolbar">
+    <input class="input" type="search" name="q" value="@Model.Query" placeholder="过滤 JobId / 显示名…" autocomplete="off" />
+    <button class="btn btn-secondary" type="submit">过滤</button>
+    <a class="btn btn-tertiary" href="/run">重置</a>
+</form>
+
+<div class="card table-card">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>任务</th>
+                <th class="hide-sm">Cron</th>
+                <th>队列</th>
+                <th>状态</th>
+                <th class="hide-sm">最近执行</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var task in Model.Tasks)
+            {
+                <tr>
+                    <td>
+                        <strong>@(task.JobName ?? task.JobId)</strong>
+                        <div class="muted mono-sm word-break">@task.JobId</div>
+                    </td>
+                    <td class="hide-sm mono">@task.CronExpr</td>
+                    <td class="muted">@task.Queue</td>
+                    <td>
+                        <span class="badge @(task.IsEnabled ? "badge-success" : "badge-muted")">@(task.IsEnabled ? "启用" : "停用")</span>
+                    </td>
+                    <td class="hide-sm muted">@(task.LastExecution?.ToLocalTime().ToString("MM-dd HH:mm:ss") ?? "—")</td>
+                    <td class="cell-action">
+                        <form method="post" asp-controller="Run" asp-action="Trigger" asp-route-jobId="@task.JobId">
+                            <button class="btn btn-primary btn-sm" type="submit" @(Model.ReadOnly ? "disabled" : null)
+                                    title="@(Model.ReadOnly ? "只读模式下触发被禁用" : null)">立即运行</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (Model.Tasks.Count == 0)
+    {
+        <div class="empty">没有匹配的任务。</div>
+    }
+</div>
