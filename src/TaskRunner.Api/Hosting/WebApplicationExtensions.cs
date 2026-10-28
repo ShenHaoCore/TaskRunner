@@ -70,6 +70,19 @@ public static class WebApplicationExtensions
                     }
                 }
 
+                // Dashboard：未登录的浏览器请求直接跳登录页（登录后经 returnUrl 回到原页面）；
+                // 机器请求（Accept 非 text/html）继续由 Dashboard 过滤器回 401 + Basic。
+                if (path.StartsWithSegments(dashboardPath, StringComparison.OrdinalIgnoreCase)
+                    && context.User.Identity?.IsAuthenticated != true
+                    && !AdminCredentials.TryMatchRequest(context.Request, hangfireOptions.AdminApiKey)
+                    && context.Request.Headers.Accept.ToString()
+                        .Contains("text/html", StringComparison.OrdinalIgnoreCase))
+                {
+                    var returnUrl = context.Request.Path + context.Request.QueryString;
+                    context.Response.Redirect($"/login?returnUrl={Uri.EscapeDataString(returnUrl)}");
+                    return Task.CompletedTask;
+                }
+
                 return next();
             });
         }

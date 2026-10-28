@@ -5,6 +5,10 @@ using TaskRunner.Core.Common;
 
 namespace TaskRunner.Api.Dashboard;
 
+/// <summary>
+/// Dashboard 鉴权：未授权的机器请求回 401 + Basic 质询；
+/// 未登录的浏览器请求由管道层（UseTaskRunnerPipeline）先一步重定向到 /login。
+/// </summary>
 public sealed class AdminDashboardAuthorizationFilter : IDashboardAuthorizationFilter
 {
     public bool Authorize(DashboardContext context)
