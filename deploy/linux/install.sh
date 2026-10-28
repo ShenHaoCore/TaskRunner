@@ -15,7 +15,9 @@ fi
 INSTALL_ROOT="${TASKRUNNER_INSTALL_ROOT:-/opt/taskrunner}"
 SERVICE_TYPE="${TASKRUNNER_SERVICE_TYPE:-notify}"
 SERVICE_USER=taskrunner
-DEFAULTS_FILE=/etc/default/taskrunner
+SHARED_ENV=/etc/default/taskrunner
+API_ENV=/etc/default/taskrunner-api
+WORKER_ENV=/etc/default/taskrunner-worker
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -63,26 +65,81 @@ chmod 644 /etc/systemd/system/taskrunner-api.service /etc/systemd/system/taskrun
 systemctl daemon-reload
 
 NEED_CONFIG=0
-if [[ ! -f ${DEFAULTS_FILE} ]]; then
-  echo "==> 生成配置文件 ${DEFAULTS_FILE}（含占位符，启动前必须修改）"
-  cat > "${DEFAULTS_FILE}" <<'EOF'
-# TaskRunner 生产配置（systemd EnvironmentFile）。
-# 两处 CHANGE_ME 必填；只改本文件，不要改 /opt/taskrunner/**/appsettings.json。
-# 改完执行：sudo systemctl restart taskrunner-api taskrunner-worker
-ConnectionStrings__Default='Host=127.0.0.1;Port=5432;Database=taskrunner;Username=taskrunner;Password=CHANGE_ME'
-Hangfire__AdminApiKey='CHANGE_ME'
 
-# 可选覆盖（取消注释生效；此处同名变量优先于 unit 内默认值）：
+# 旧版单文件含 Api/Worker 键时，拆到角色文件并只保留共享连接串。
+migrate_monolith_env() {
+  [[ -f ${SHARED_ENV} ]] || return 0
+  [[ -f ${API_ENV} && -f ${WORKER_ENV} ]] && return 0
+  grep -qE '^(Hangfire__AdminApiKey|Hangfire__WorkerCount|Hangfire__Queues|Hangfire__ReadOnlyMode|Hangfire__CookieSecure|ASPNETCORE_URLS)=' "${SHARED_ENV}" || return 0
+
+  echo "==> 迁移旧版 ${SHARED_ENV} 到共享 + Api/Worker 角色文件"
+  local tmp
+  tmp="$(mktemp)"
+  grep -E '^(#|$|ConnectionStrings__)' "${SHARED_ENV}" > "${tmp}" || true
+  if [[ ! -f ${API_ENV} ]]; then
+    {
+      echo "# TaskRunner Api（鉴权 / Dashboard）。只改本文件与 ${SHARED_ENV}，勿改包内 appsettings。"
+      grep -E '^(Hangfire__AdminApiKey|Hangfire__ReadOnlyMode|Hangfire__CookieSecure|ASPNETCORE_URLS)=' "${SHARED_ENV}" || echo "Hangfire__AdminApiKey='CHANGE_ME'"
+    } > "${API_ENV}"
+    chmod 600 "${API_ENV}"
+  fi
+  if [[ ! -f ${WORKER_ENV} ]]; then
+    {
+      echo "# TaskRunner Worker（队列 / 并发）。只改本文件与 ${SHARED_ENV}，勿改包内 appsettings。"
+      grep -E '^(Hangfire__WorkerCount|Hangfire__Queues)' "${SHARED_ENV}" || true
+      echo "# Hangfire__WorkerCount='5'"
+      echo "# Hangfire__Queues__0='default'"
+    } > "${WORKER_ENV}"
+    chmod 600 "${WORKER_ENV}"
+  fi
+  {
+    echo "# TaskRunner 共享（Api + Worker）。连接串两边必须一致。"
+    echo "# 角色专属键见 ${API_ENV} / ${WORKER_ENV}。勿改 /opt/taskrunner/**/appsettings.json。"
+    grep -E '^ConnectionStrings__' "${tmp}" || echo "ConnectionStrings__Default='Host=127.0.0.1;Port=5432;Database=taskrunner;Username=taskrunner;Password=CHANGE_ME'"
+  } > "${SHARED_ENV}"
+  chmod 600 "${SHARED_ENV}"
+  rm -f "${tmp}"
+}
+
+migrate_monolith_env
+
+if [[ ! -f ${SHARED_ENV} ]]; then
+  echo "==> 生成共享配置 ${SHARED_ENV}"
+  cat > "${SHARED_ENV}" <<'EOF'
+# TaskRunner 共享（Api + Worker）。连接串两边必须一致。
+# 角色专属键见 /etc/default/taskrunner-api 与 taskrunner-worker。勿改包内 appsettings。
+ConnectionStrings__Default='Host=127.0.0.1;Port=5432;Database=taskrunner;Username=taskrunner;Password=CHANGE_ME'
+EOF
+  chmod 600 "${SHARED_ENV}"
+fi
+
+if [[ ! -f ${API_ENV} ]]; then
+  echo "==> 生成 Api 配置 ${API_ENV}"
+  cat > "${API_ENV}" <<'EOF'
+# TaskRunner Api（鉴权 / Dashboard）。改完：sudo systemctl restart taskrunner-api
+Hangfire__AdminApiKey='CHANGE_ME'
 # ASPNETCORE_URLS='http://0.0.0.0:5088'
 # Hangfire__ReadOnlyMode='false'
-# Hangfire__WorkerCount='5'
-# Hangfire__CookieSecure='true'   # TLS 反代部署时置 true
+# Hangfire__CookieSecure='true'   # TLS 反代时置 true
 EOF
-  chmod 600 "${DEFAULTS_FILE}"
-  NEED_CONFIG=1
-elif grep -q "CHANGE_ME" "${DEFAULTS_FILE}"; then
-  NEED_CONFIG=1
+  chmod 600 "${API_ENV}"
 fi
+
+if [[ ! -f ${WORKER_ENV} ]]; then
+  echo "==> 生成 Worker 配置 ${WORKER_ENV}"
+  cat > "${WORKER_ENV}" <<'EOF'
+# TaskRunner Worker（队列 / 并发）。改完：sudo systemctl restart taskrunner-worker
+# Hangfire__WorkerCount='5'
+# Hangfire__Queues__0='default'
+EOF
+  chmod 600 "${WORKER_ENV}"
+fi
+
+for f in "${SHARED_ENV}" "${API_ENV}" "${WORKER_ENV}"; do
+  if grep -q "CHANGE_ME" "${f}"; then
+    NEED_CONFIG=1
+  fi
+done
 
 echo "==> 设置开机自启（不立即启动）"
 systemctl enable taskrunner-api taskrunner-worker >/dev/null
@@ -91,8 +148,9 @@ if [[ ${NEED_CONFIG} -eq 1 ]]; then
   cat <<EOF
 
 安装完成，还差最后一步——本机生产配置（含 CHANGE_ME，服务不会启动）：
-  1) sudo nano ${DEFAULTS_FILE}
-     填好 ConnectionStrings__Default 与 Hangfire__AdminApiKey（两处 CHANGE_ME）
+  1) sudo nano ${SHARED_ENV}     # ConnectionStrings__Default
+     sudo nano ${API_ENV}        # Hangfire__AdminApiKey
+     （可选）sudo nano ${WORKER_ENV}  # Queues / WorkerCount
      不要改 ${INSTALL_ROOT}/**/appsettings.json（升级会覆盖；多机应共用同一份发布包）
   2) sudo systemctl start taskrunner-api taskrunner-worker
      （若仍含 CHANGE_ME，systemd ExecStartPre 会拒绝启动）

@@ -1,7 +1,7 @@
 # Ubuntu 部署指南
 
 生产形态：**Api**（Hangfire Client + Dashboard + REST，只入队）+ **Worker**（Hangfire Server，执行作业）。
-两者都用 systemd 管理，以专用系统用户 `taskrunner` 运行，安装到 `/opt/taskrunner`，配置集中在 `/etc/default/taskrunner`。
+两者都用 systemd 管理，以专用系统用户 `taskrunner` 运行，安装到 `/opt/taskrunner`。配置分三份：共享连接串 + Api / Worker 角色文件。
 
 ## 前置要求
 
@@ -65,27 +65,27 @@ sudo bash /tmp/taskrunner/deploy/install.sh
 ```
 
 脚本做的事：创建系统用户 `taskrunner` → 停旧服务 → 覆盖 `/opt/taskrunner/{api,worker}` →
-安装 `/etc/systemd/system/taskrunner-{api,worker}.service` → 生成 `/etc/default/taskrunner` →
+安装 `/etc/systemd/system/taskrunner-{api,worker}.service` → 生成 `/etc/default/taskrunner{,-api,-worker}`（旧单文件会自动拆分）→
 设置开机自启（**不立即启动**，等配置填好）。
 
-## 生产配置（必填两处）
-
-编辑 `/etc/default/taskrunner`（systemd EnvironmentFile，权限 600）：
+## 生产配置（共享 + 角色）
 
 ```bash
-sudo nano /etc/default/taskrunner
+sudo nano /etc/default/taskrunner          # 共享
+sudo nano /etc/default/taskrunner-api      # 仅 Api
+sudo nano /etc/default/taskrunner-worker   # 仅 Worker（可选覆盖）
 ```
 
-| 变量 | 必填 | 说明 |
-|------|:----:|------|
-| `ConnectionStrings__Default` | ✅ | PostgreSQL 连接串，如 `Host=127.0.0.1;Port=5432;Database=taskrunner;Username=taskrunner;Password=...` |
-| `Hangfire__AdminApiKey` | ✅ | 管理员密钥。**未配置时 Api 生产环境启动即失败**（fail-fast） |
-| `ASPNETCORE_URLS` | 可选 | 默认 `http://127.0.0.1:5088`（仅本机，建议配 nginx 反代；要公网直连改 `http://0.0.0.0:5088`） |
-| `Hangfire__ReadOnlyMode` | 可选 | `true` 时所有写操作（含 Dashboard）被拦截，适合灾备只读实例 |
-| `Hangfire__WorkerCount` | 可选 | Worker 并发数，默认 5 |
-| `Hangfire__Queues__0` 等 | 可选 | Worker 订阅队列（默认仅 `default`）。任务声明了其它队列时，须在此列出，否则会积压 |
-| `Hangfire__CookieSecure` | 可选 | TLS 反代部署置 `true`（管理员 Cookie 仅经 HTTPS 传输），默认 `false` 兼容本机 http |
-| `Hangfire__HeartbeatPingUrl` | 可选 | 心跳死信开关：配置后心跳成功即 POST 该地址（如 healthchecks.io 的 check URL），失败计入重试/Failed；外部服务「未按时收到 ping」即告警。留空不 ping |
+| 文件 | 变量 | 必填 | 说明 |
+|------|------|:----:|------|
+| `taskrunner` | `ConnectionStrings__Default` | ✅ | PostgreSQL 连接串；Api 与 Worker 必须一致 |
+| `taskrunner-api` | `Hangfire__AdminApiKey` | ✅ | 管理员密钥。**未配置时 Api 生产环境启动即失败**（fail-fast） |
+| `taskrunner-api` | `ASPNETCORE_URLS` | 可选 | 默认单元内 `http://127.0.0.1:5088`；公网直连可改 `http://0.0.0.0:5088` |
+| `taskrunner-api` | `Hangfire__ReadOnlyMode` | 可选 | `true` 时写操作（含 Dashboard）被拦截 |
+| `taskrunner-api` | `Hangfire__CookieSecure` | 可选 | TLS 反代置 `true`，默认 `false` |
+| `taskrunner-worker` | `Hangfire__WorkerCount` | 可选 | Worker 并发数，默认 5 |
+| `taskrunner-worker` | `Hangfire__Queues__0` 等 | 可选 | 订阅队列（默认仅 `default`）；任务声明了其它队列时须列出 |
+| `taskrunner-worker` | `Hangfire__HeartbeatPingUrl` | 可选 | 心跳死信开关：配置后心跳成功即 POST 该地址（如 healthchecks.io 的 check URL），失败计入重试/Failed；外部服务「未按时收到 ping」即告警。留空不 ping |
 
 启动并验证：
 
@@ -97,7 +97,7 @@ curl -H "X-TaskRunner-Admin: <你的密钥>" http://127.0.0.1:5088/api/tasks
 
 ## 配置的环境区分
 
-配置优先级（低 → 高）：`appsettings.json`（公共默认，源 `src/appsettings.json`）→ 环境变量 `/etc/default/taskrunner`（密钥与连接串、以及生产差异如 Worker 数等）。
+配置优先级（低 → 高）：`appsettings.json`（公共默认，源 `src/appsettings.json`）→ `/etc/default/taskrunner` → `/etc/default/taskrunner-api` 或 `taskrunner-worker`（后加载覆盖）。
 本地开发用 User Secrets（见 README），不要改仓库里的连接串。改完 EnvironmentFile 需 `systemctl restart` 才生效。
 实例当前环境与版本可通过 `/info` 的 `environment`、`version` 字段确认（首页页脚同步显示版本；`version` 由发布流水线随 tag 注入程序集）。
 
@@ -106,11 +106,11 @@ curl -H "X-TaskRunner-Admin: <你的密钥>" http://127.0.0.1:5088/api/tasks
 每台机器可以自带 PostgreSQL（甚至本机 Redis 给其他服务用），但 **TaskRunner 发布包与仓库配置保持一份**：
 
 1. 所有机器安装同一份 tar.gz / 同一套 `api/`、`worker/`。
-2. **只**编辑该机的 `/etc/default/taskrunner`（填本机 PG 连接串与 `Hangfire__AdminApiKey`）。
+2. **只**编辑该机的 `/etc/default/taskrunner*`（共享连接串 + Api 密钥；Worker 按需调队列）。
 3. **不要**改 `/opt/taskrunner/api/appsettings.json` 或 `worker` 下同名文件——升级会被覆盖，且无法在多机间保持一致。
-4. 升级重跑 `install.sh` 只替换程序；已有且不含 `CHANGE_ME` 的 `/etc/default/taskrunner` 会保留并自动重启服务。
+4. 升级重跑 `install.sh` 只替换程序；已有且不含 `CHANGE_ME` 的 env 会保留（旧单文件会拆成三份）并自动重启服务。
 
-约定建议：各机 PG 监听 `127.0.0.1:5432`、库/用户 `taskrunner`，仅密码不同。文件里若仍含 `CHANGE_ME`，systemd 的 `ExecStartPre` 会拒绝启动，避免带着占位符跑起来。
+约定建议：各机 PG 监听 `127.0.0.1:5432`、库/用户 `taskrunner`，仅密码与 AdminApiKey 不同。文件里若仍含 `CHANGE_ME`，systemd 的 `ExecStartPre` 会拒绝启动。
 
 ## 日志
 
@@ -183,8 +183,8 @@ sudo bash /tmp/taskrunner/deploy/install.sh
 
 ## 常见问题
 
-- **Api 启动即失败，日志提示管理员密钥**：`/etc/default/taskrunner` 里 `Hangfire__AdminApiKey` 还没填（3.1.0 起 fail-fast）。填好后 `sudo systemctl restart taskrunner-api`。
-- **`systemctl start` 立刻失败，journal 提到 CHANGE_ME / ExecStartPre**：`/etc/default/taskrunner` 仍含占位符。只改该文件两处 `CHANGE_ME`，**不要**去改 `/opt/taskrunner/**/appsettings.json`，然后 `sudo systemctl restart taskrunner-api taskrunner-worker`。
+- **Api 启动即失败，日志提示管理员密钥**：`/etc/default/taskrunner-api` 里 `Hangfire__AdminApiKey` 还没填（3.1.0 起 fail-fast）。填好后 `sudo systemctl restart taskrunner-api`。
+- **`systemctl start` 立刻失败，journal 提到 CHANGE_ME / ExecStartPre**：对应 `/etc/default/taskrunner*` 仍含占位符。改共享连接串与 Api 密钥，**不要**去改 `/opt/taskrunner/**/appsettings.json`，然后 `sudo systemctl restart taskrunner-api taskrunner-worker`。
 - **`systemctl start` 超时后服务标记 failed**：包是旧版产物、不支持 `Type=notify`。用 `sudo TASKRUNNER_SERVICE_TYPE=simple bash ./deploy/install.sh` 重装，或换新包。
 - **数据库连不上**：确认 `/etc/default/taskrunner` 里连接串、PG 的 `pg_hba.conf`/监听地址；本机未装 PG 时 `postgresql.service` 的排序不生效，属正常。
 - **改了配置没生效**：EnvironmentFile 只在服务启动时读取，改完必须 `systemctl restart`。若误改了包内 `appsettings.json`，下次升级会被覆盖——应改回本机 env。

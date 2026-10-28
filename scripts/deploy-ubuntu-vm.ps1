@@ -41,6 +41,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Output ""
 Write-Output "If install asked for CHANGE_ME:"
 Write-Output "  ssh $Target"
-Write-Output "  sudo nano /etc/default/taskrunner"
+Write-Output "  sudo nano /etc/default/taskrunner      # ConnectionStrings__Default"
+Write-Output "  sudo nano /etc/default/taskrunner-api  # Hangfire__AdminApiKey"
 Write-Output "  sudo systemctl start taskrunner-api taskrunner-worker"
 Write-Output "Do not edit /opt/taskrunner/**/appsettings.json"

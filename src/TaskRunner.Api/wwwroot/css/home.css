@@ -1,0 +1,18 @@
+/* 度量盒（Hangfire div.metric） */
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0 15px; }
+div.metric {
+    border: solid 1px transparent; border-radius: var(--radius);
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05); margin-bottom: 20px;
+    background-color: var(--metric-bg);
+    transition: color 0.1s ease-out, background 0.1s ease-out, border 0.1s ease-out;
+}
+div.metric .metric-body {
+    padding: 15px 15px 0; font-size: 26px; text-align: center;
+    overflow: hidden; text-overflow: ellipsis;
+}
+div.metric .metric-description { padding: 0 15px 15px; text-align: center; color: inherit; }
+div.metric.metric-success { color: var(--success); border-color: var(--success); }
+div.metric.metric-danger { color: var(--danger); border-color: var(--danger); }
+div.metric.metric-warning { color: var(--warning); border-color: var(--warning); }
+div.metric.metric-info { color: var(--info); border-color: var(--info); }
+div.metric.metric-default { color: var(--metric-default); border-color: var(--border); }

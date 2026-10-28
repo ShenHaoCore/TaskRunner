@@ -1,0 +1,67 @@
+@section Styles {
+    <link rel="stylesheet" href="~/css/home.css" asp-append-version="true" />
+}
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="block" id="stats">
+                <div class="list-group">
+                    <a class="list-group-item active" href="/">仪表盘</a>
+                    <a class="list-group-item" href="/taskrunner" id="link-dashboard">Hangfire Dashboard</a>
+                    <a class="list-group-item" href="/run">任务运行台</a>
+                    <a class="list-group-item" href="/api/tasks">任务 API</a>
+                    <a class="list-group-item" href="/login">管理员登录</a>
+                    <a class="list-group-item" href="/info">/info</a>
+                    <a class="list-group-item" href="/health">/health</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-9">
+            <div class="page-header">
+                <h1>任务调度平台 <small>Api 入队 · Worker 执行 · Hangfire 可视化</small></h1>
+            </div>
+
+            <p>
+                Api 服务负责入队、Dashboard 与运维接口；作业由独立的 Worker 服务执行，
+                状态实时汇总在下方，数据来自 Hangfire 监控接口。
+            </p>
+
+            <div class="metric-grid" aria-label="运行概览">
+                <div class="metric metric-success"><div class="metric-body" data-k="succeeded">—</div><div class="metric-description">成功</div></div>
+                <div class="metric metric-danger"><div class="metric-body" data-k="failed">—</div><div class="metric-description">失败</div></div>
+                <div class="metric metric-info"><div class="metric-body" data-k="enqueued">—</div><div class="metric-description">排队</div></div>
+                <div class="metric metric-warning"><div class="metric-body" data-k="processing">—</div><div class="metric-description">处理中</div></div>
+                <div class="metric metric-default"><div class="metric-body" data-k="recurring">—</div><div class="metric-description">定时任务</div></div>
+                <div class="metric metric-default" id="metric-servers"><div class="metric-body" data-k="servers">—</div><div class="metric-description" id="worker-text">Worker</div></div>
+            </div>
+            <p class="text-muted" id="hint">正在加载统计…</p>
+
+            <div class="page-header section-gap"><h2>快速入口</h2></div>
+            <div class="list-group">
+                <a class="list-group-item" href="/taskrunner" id="link-dashboard-entry">
+                    <strong>Hangfire Dashboard</strong>
+                    <span class="item-desc">实时查看队列、重试与服务器状态，生产环境经管理员鉴权进入。</span>
+                </a>
+                <a class="list-group-item" href="/run">
+                    <strong>任务运行台</strong>
+                    <span class="item-desc">按名称过滤已注册任务，一键立即运行，需管理员登录会话。</span>
+                </a>
+                <a class="list-group-item" href="/api/tasks">
+                    <strong>运维 REST</strong>
+                    <span class="item-desc"><code>/api/tasks</code> 提供清单、统计、启停、触发与 Cron 覆盖，凭 <code>X-TaskRunner-Admin</code> 密钥调用。</span>
+                </a>
+                <a class="list-group-item" href="/info">
+                    <strong>插件式任务</strong>
+                    <span class="item-desc">实现 <code>IRecurringJob</code> 的程序集经 <code>AddTaskRunnerCore</code> 注入，重启即自动注册。</span>
+                </a>
+            </div>
+            <a class="btn btn-primary" id="link-scalar" href="/scalar" hidden>API 文档 (Scalar)</a>
+            <a class="btn btn-default" id="link-run" href="/run">打开任务运行台</a>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/home.js" asp-append-version="true"></script>
+}
