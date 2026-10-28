@@ -2,6 +2,23 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 3.7.0 - 2026-10-29
+
+### 升级到本版本要做什么
+
+- **登录改为账号密码**：存量机器需在 `/etc/default/taskrunner-api` 手动补 `Hangfire__AdminUsername`（缺省 `admin`）与 `Hangfire__AdminPassword` 后重启 taskrunner-api；未补则 `/login` 表单给出引导（机器密钥调用不受影响）。新装由 install.sh 模板生成占位
+- 旧 `*.html` 书签自动重定向到 `/run`、`/login`，无需更新
+- 自定义页面样式整体更换为 Linear 设计系统（深色为默认），若引用过旧页内 CSS 类需留意
+
+### 变更
+
+- 登录鉴权改账号密码：`Hangfire:AdminUsername` / `Hangfire:AdminPassword`；校验两侧 SHA-256 后恒定时间比较（不泄漏长度）；`/api/auth/login` 契约改为 `{username, password}`；机器调用保持 `AdminApiKey`（`X-TaskRunner-Admin` / Basic）不变
+- MVC 登录：`GET/POST /login`（表单 + 防伪令牌 + 按 IP 限流）、`POST /logout`；导航栏显示当前账号
+- 页面重做为 Linear 设计系统（token 源自 awesome-design-md · linear.app：#010102 画布 + 四级 surface 阶梯 + 发丝线 + 薰衣草蓝唯一强调；浅色为反相 token；Inter 替代字体，深色为默认）
+- 页面数据服务端化：首页统计/心跳、运行台列表/过滤/触发（MVC 表单 + 一次性提示条）全部 Razor 渲染，删除 fetch 型 JS 与分页 css（合并为 `app.css`）
+- 只读模式下运行台触发按钮禁用并提示
+- install.sh 新装模板含账号密码占位；部署文档环境变量表同步
+
 ## 3.6.0 - 2026-10-28
 
 ### 升级到本版本要做什么
