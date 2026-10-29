@@ -2,6 +2,31 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 3.8.0 - 2026-10-29
+
+全面代码审查（对照 Hangfire 官方建议与高星调度平台惯例）后的改进批次。
+
+### 升级到本版本要做什么
+
+- API 错误响应改为 RFC 7807 ProblemDetails（`detail` 字段取代 `message`）；触发作业返回 **202**（原 200），已暂停任务返回 **409**——依赖旧行为的脚本需同步调整
+- `/info` 匿名访问只保留最小暴露（name/status/version/tasks/authLogin），完整字段需管理员凭据
+- 可选新增 `Hangfire:MaxJobRuntimeMinutes`（单作业运行时限，0=不限，默认不限）
+
+### 新增
+
+- `/health` 真实健康检查：业务库连通 + Hangfire 存储可读（原为静态 ok）
+- 作业运行时限：超时以取消令牌通知作业，防单个失控任务占死 Worker
+- 反代支持：信任本机 nginx 的 Forwarded 头，登录限流按真实客户端 IP 分桶
+- 页面级安全响应头（X-Content-Type-Options / Referrer-Policy）
+- 运行台触发防重复提交；暂停任务在页面上禁用触发按钮
+
+### 修复
+
+- 插件程序集部分类型加载失败时中止任务发现，不再基于残缺结果清理任务配置（防误删 Cron 覆盖与启停状态）
+- 重试退避按重试次数生成（2/4/8/16…上限 1h），不再固定 [2,4,8]
+- 契约声明队列未被 Worker 订阅时启动打错误日志（原为静默滞留 Enqueued）
+- 匿名 `/info` 暴露裁剪；主题首访跟随系统偏好；移动端导航可见；静态资源长缓存；可访问性补齐（aria-label/aria-current/aria-pressed）
+
 ## 3.7.4 - 2026-10-29
 
 ### 变更
