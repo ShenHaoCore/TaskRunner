@@ -469,6 +469,14 @@ code {
     background: var(--surface-1);
     color: var(--ink-muted);
     font-size: 14px;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.flash-leaving { opacity: 0; transform: translateY(-4px); }
+
+@media (prefers-reduced-motion: reduce) {
+    .flash { transition: none; }
+    .flash-leaving { transform: none; }
 }
 
 .flash-success { border-color: var(--success); background: var(--success-tint); color: var(--ink); }
