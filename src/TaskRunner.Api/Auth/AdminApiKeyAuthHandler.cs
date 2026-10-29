@@ -25,6 +25,23 @@ public sealed class AdminApiKeyAuthHandler(
     IOptions<TaskRunnerOptions> hangfireOptions,
     IHostEnvironment environment) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
+    /// <summary>
+    /// 未认证的挑战：浏览器请求（Accept 含 text/html）302 重定向到 /login 并携带 returnUrl，
+    /// 登录后回到原页面；机器请求（curl 等）保持 401。
+    /// </summary>
+    protected override Task HandleChallengeAsync(AuthenticationProperties properties)
+    {
+        if (Request.Headers.Accept.ToString().Contains("text/html", StringComparison.OrdinalIgnoreCase))
+        {
+            var returnUrl = Request.Path + Request.QueryString;
+            Response.Redirect($"/login?returnUrl={Uri.EscapeDataString(returnUrl)}");
+            return Task.CompletedTask;
+        }
+
+        Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return Task.CompletedTask;
+    }
+
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         if (environment.IsDevelopment())
