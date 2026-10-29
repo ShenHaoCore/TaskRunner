@@ -2,6 +2,12 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 3.7.2 - 2026-10-29
+
+### 修复
+
+- 运行台触发后的提示条与下方「运维」眉题贴死：补 flash 下边距（20px）
+
 ## 3.7.1 - 2026-10-29
 
 ### 修复
