@@ -53,7 +53,7 @@
     <main class="container page">
         @if (TempData["Flash"] is string flashOk)
         {
-            <div class="flash flash-success" role="status">@flashOk</div>
+            <div class="flash flash-success" role="status" data-auto-dismiss="true">@flashOk</div>
         }
         @if (TempData["FlashError"] is string flashErr)
         {
@@ -70,6 +70,19 @@
     </footer>
 
     <script src="~/js/theme.js" asp-append-version="true"></script>
+    <script>
+        // 成功提示 5 秒自动淡出（悬停暂停）；失败提示常驻，由用户下次操作带走
+        (function () {
+            document.querySelectorAll(".flash[data-auto-dismiss='true']").forEach(function (el) {
+                var timer = setTimeout(function () { dismiss(el); }, 5000);
+                el.addEventListener("mouseenter", function () { clearTimeout(timer); });
+            });
+            function dismiss(el) {
+                el.classList.add("flash-leaving");
+                setTimeout(function () { el.remove(); }, 300);
+            }
+        })();
+    </script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
