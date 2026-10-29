@@ -24,6 +24,8 @@ public interface ITaskConfigRepository
 
 public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRepository
 {
+    private const int MigrateAdvisoryLockId = 738231001;
+
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
         // 生产 / 开发：PostgreSQL 走 EF 迁移。测试：SQLite 与迁移模型有提供程序差异，改 EnsureCreated。
@@ -33,7 +35,27 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
             return;
         }
 
-        await db.Database.MigrateAsync(cancellationToken);
+        // Api/Worker 双进程（或 Api 多副本）同时首启：迁移以会话级 advisory lock 串行化，
+        // 避免 __EFMigrationsHistory 与 CREATE TABLE 并发冲突。
+        await db.Database.OpenConnectionAsync(cancellationToken);
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                $"SELECT pg_advisory_lock({MigrateAdvisoryLockId});", cancellationToken);
+            try
+            {
+                await db.Database.MigrateAsync(cancellationToken);
+            }
+            finally
+            {
+                await db.Database.ExecuteSqlRawAsync(
+                    $"SELECT pg_advisory_unlock({MigrateAdvisoryLockId});", cancellationToken);
+            }
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync();
+        }
     }
 
     public async Task SyncDiscoveredAsync(IReadOnlyCollection<RecurringJobDescriptor> jobs, CancellationToken cancellationToken)
@@ -132,31 +154,38 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
     public Task<TaskConfig?> FindAsync(string jobId, CancellationToken cancellationToken)
         => db.TaskConfigs.FirstOrDefaultAsync(item => item.JobId == jobId, cancellationToken);
 
-    public async Task<TaskConfig?> SetEnabledAsync(string jobId, bool enabled, CancellationToken cancellationToken)
+    public Task<TaskConfig?> SetEnabledAsync(string jobId, bool enabled, CancellationToken cancellationToken)
+        => UpdateRowAsync(jobId, row => row.IsEnabled = enabled, cancellationToken);
+
+    public Task<TaskConfig?> UpdateCronAsync(string jobId, string cron, CancellationToken cancellationToken)
+        => UpdateRowAsync(jobId, row => row.CronExpr = cron.Trim(), cancellationToken);
+
+    /// <summary>
+    /// 读-改-写统一入口：xmin 并发冲突（并发启停/Cron 更新）时重载行并重试一次，
+    /// 第二次仍冲突则抛出（调用方按 500 处理），不再静默丢失更新。
+    /// </summary>
+    private async Task<TaskConfig?> UpdateRowAsync(
+        string jobId, Action<TaskConfig> mutate, CancellationToken cancellationToken)
     {
-        var row = await FindAsync(jobId, cancellationToken);
-        if (row is null)
+        for (var attempt = 0; ; attempt++)
         {
-            return null;
+            var row = await FindAsync(jobId, cancellationToken);
+            if (row is null)
+            {
+                return null;
+            }
+
+            mutate(row);
+            row.UpdatedAt = DateTime.UtcNow;
+            try
+            {
+                await db.SaveChangesAsync(cancellationToken);
+                return row;
+            }
+            catch (DbUpdateConcurrencyException) when (attempt == 0)
+            {
+                await db.Entry(row).ReloadAsync(cancellationToken);
+            }
         }
-
-        row.IsEnabled = enabled;
-        row.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(cancellationToken);
-        return row;
-    }
-
-    public async Task<TaskConfig?> UpdateCronAsync(string jobId, string cron, CancellationToken cancellationToken)
-    {
-        var row = await FindAsync(jobId, cancellationToken);
-        if (row is null)
-        {
-            return null;
-        }
-
-        row.CronExpr = cron.Trim();
-        row.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(cancellationToken);
-        return row;
     }
 }

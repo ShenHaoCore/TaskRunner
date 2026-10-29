@@ -21,8 +21,11 @@
         @if (Model.Authenticated && Model.HeartbeatEnabled)
         {
             <span class="status-badge">
-                心跳 @(Model.HeartbeatLast?.ToLocalTime().ToString("MM-dd HH:mm:ss") ?? "未注册")
-                @(Model.HeartbeatNext is null ? "" : " → " + Model.HeartbeatNext?.ToLocalTime().ToString("HH:mm:ss"))
+                心跳 <time data-local-time datetime="@(Model.HeartbeatLast?.ToString("o") ?? "")">@(Model.HeartbeatLast?.ToString("o") ?? "未注册")</time>
+                @if (Model.HeartbeatNext is not null)
+                {
+                    <text>→ <time data-local-time datetime="@Model.HeartbeatNext?.ToString("o")">@Model.HeartbeatNext?.ToString("o")</time></text>
+                }
             </span>
         }
     </div>

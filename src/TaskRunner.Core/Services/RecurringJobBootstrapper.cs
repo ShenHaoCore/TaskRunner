@@ -1,11 +1,15 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TaskRunner.Core.Common;
-using TaskRunner.Core.Services;
 
-namespace TaskRunner.Api.Hosting;
+namespace TaskRunner.Core.Services;
 
 /// <summary>
 /// 在 Hangfire Server StartAsync 之前同步 recurring（IHostedLifecycleService.StartingAsync）。
+/// Api 与 Worker 均注册：迁移由会话级 advisory lock 串行化，同步幂等，
+/// 因此 Api 故障重启循环中 Worker 也能独立完成「迁移 → 同步配置 → 清理残留」。
 /// </summary>
 public sealed class RecurringJobBootstrapper(
     IServiceScopeFactory scopeFactory,
@@ -25,32 +29,6 @@ public sealed class RecurringJobBootstrapper(
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     public Task StoppedAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
-    /// <summary>契约声明的队列必须被 Worker 订阅，否则作业将永远滞留 Enqueued（静默丢单）。</summary>
-    private void ValidateQueuesCovered()
-    {
-        var subscribed = options.Value.Queues.ToHashSet(StringComparer.Ordinal);
-        var uncovered = catalog.RecurringJobs
-            .Select(job => QueueNameGuard.Normalize(job.Queue))
-            .Distinct(StringComparer.Ordinal)
-            .Where(queue => !subscribed.Contains(queue))
-            .ToList();
-        if (uncovered.Count > 0)
-        {
-            logger.LogError(
-                "任务声明了未被订阅的队列 {Queues}（Hangfire:Queues={Configured}）。这些作业将滞留 Enqueued，请在 Worker 配置中订阅。",
-                string.Join(", ", uncovered), string.Join(", ", options.Value.Queues));
-        }
-    }
-
-    /// <summary>配了死信 ping 却关了心跳，外部告警永远不会生效——启动时明确警告。</summary>
-    private void WarnHeartbeatCombo()
-    {
-        if (!string.IsNullOrWhiteSpace(options.Value.HeartbeatPingUrl) && !options.Value.HeartbeatEnabled)
-        {
-            logger.LogWarning("已配置 Hangfire:HeartbeatPingUrl 但 HeartbeatEnabled=false：死信告警不会生效。");
-        }
-    }
 
     private async Task SyncAsync(CancellationToken cancellationToken)
     {
@@ -96,21 +74,44 @@ public sealed class RecurringJobBootstrapper(
                 if (!config.IsEnabled)
                 {
                     scheduler.RemoveRecurring(config.JobId);
-                    logger.LogInformation("定时任务 {JobId} 已暂停，未注册到 Hangfire。", config.JobId);
                     continue;
                 }
 
-                scheduler.AddOrUpdateRecurring(config.JobId, config.JobType, config.CronExpr, config.Queue);
-                logger.LogInformation(
-                    "定时任务 {JobId} 已注册，Cron={Cron}，Queue={Queue}。",
-                    config.JobId,
-                    config.CronExpr,
-                    config.Queue);
+                scheduler.AddOrUpdateRecurring(config.JobId, config.JobType, config.CronExpr, config.EffectiveQueue);
+                logger.LogInformation("定时任务 {JobId} 已注册，Cron={Cron}，Queue={Queue}。",
+                    config.JobId, config.CronExpr, config.EffectiveQueue);
             }
             catch (Exception ex)
             {
+                // 单个任务注册失败不阻断其余任务；问题配置保留在库，下次启动重试。
                 logger.LogError(ex, "定时任务 {JobId} 注册失败。", config.JobId);
             }
+        }
+    }
+
+    /// <summary>契约声明的队列必须被 Worker 订阅，否则作业将永远滞留 Enqueued（静默丢单）。</summary>
+    private void ValidateQueuesCovered()
+    {
+        var subscribed = options.Value.Queues.ToHashSet(StringComparer.Ordinal);
+        var uncovered = catalog.RecurringJobs
+            .Select(job => QueueNameGuard.Normalize(job.Queue))
+            .Distinct(StringComparer.Ordinal)
+            .Where(queue => !subscribed.Contains(queue))
+            .ToList();
+        if (uncovered.Count > 0)
+        {
+            logger.LogError(
+                "任务声明了未被订阅的队列 {Queues}（Hangfire:Queues={Configured}）。这些作业将滞留 Enqueued，请在 Worker 配置中订阅。",
+                string.Join(", ", uncovered), string.Join(", ", options.Value.Queues));
+        }
+    }
+
+    /// <summary>配了死信 ping 却关了心跳，外部告警永远不会生效——启动时明确警告。</summary>
+    private void WarnHeartbeatCombo()
+    {
+        if (!string.IsNullOrWhiteSpace(options.Value.HeartbeatPingUrl) && !options.Value.HeartbeatEnabled)
+        {
+            logger.LogWarning("已配置 Hangfire:HeartbeatPingUrl 但 HeartbeatEnabled=false：死信告警不会生效。");
         }
     }
 }

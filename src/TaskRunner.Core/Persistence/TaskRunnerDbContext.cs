@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using TaskRunner.Core.Models;
 
 namespace TaskRunner.Core.Persistence;
@@ -23,5 +24,12 @@ public sealed class TaskRunnerDbContext(DbContextOptions<TaskRunnerDbContext> op
         task.Property(item => item.IsEnabled).HasDefaultValue(true);
         task.Property(item => item.CreatedAt).IsRequired();
         task.Property(item => item.UpdatedAt).IsRequired();
+
+        // PostgreSQL：xmin 系统列作并发令牌（无 schema 变更）；启停/Cron 并发更新冲突由仓储重试。
+        // Sqlite（测试库）无该系统列，跳过。
+        if (Database.IsNpgsql())
+        {
+            task.Property<uint>("xmin").IsRowVersion();
+        }
     }
 }
