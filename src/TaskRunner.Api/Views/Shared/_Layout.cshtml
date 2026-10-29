@@ -16,10 +16,12 @@
     <title>@(ViewData["Title"] ?? "TaskRunner")</title>
     <link rel="icon" href="~/mark.svg" type="image/svg+xml" />
     <script>
-        // 主题初始化须在样式应用前完成，避免闪烁（Linear 深色为默认）
-        document.documentElement.setAttribute(
-            "data-theme",
-            localStorage.getItem("tr-theme") === "light" ? "light" : "dark");
+        // 主题初始化须在样式应用前完成，避免闪烁：保存值 > 系统偏好 > 深色
+        (function () {
+            var saved = localStorage.getItem("tr-theme")
+                ?? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+            document.documentElement.setAttribute("data-theme", saved);
+        })();
     </script>
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
 </head>
@@ -28,8 +30,8 @@
         <div class="container nav-inner">
             <a class="brand" href="/"><img class="brand-mark" src="~/mark.svg" alt="" />TaskRunner</a>
             <nav class="nav-links" aria-label="主导航">
-                <a href="/" class="@(navActive == "home" ? "active" : null)">仪表盘</a>
-                <a href="/run" class="@(navActive == "run" ? "active" : null)">运行台</a>
+                <a href="/" class="@(navActive == "home" ? "active" : null)" aria-current="@(navActive == "home" ? "page" : null)">仪表盘</a>
+                <a href="/run" class="@(navActive == "run" ? "active" : null)" aria-current="@(navActive == "run" ? "page" : null)">运行台</a>
                 <a href="@dashboardPath">Dashboard</a>
                 <a href="/api/tasks">任务 API</a>
             </nav>
@@ -71,6 +73,16 @@
 
     <script src="~/js/theme.js" asp-append-version="true"></script>
     <script>
+        // 表单提交后禁用提交按钮 3 秒，防双击重复触发（PRG 重定向回来后恢复）
+        document.querySelectorAll("form[data-submit-once]").forEach(function (form) {
+            form.addEventListener("submit", function () {
+                var button = form.querySelector("button[type=submit]");
+                if (!button || button.disabled) { return; }
+                button.disabled = true;
+                setTimeout(function () { button.disabled = false; }, 3000);
+            });
+        });
+
         // 成功提示 5 秒自动淡出（悬停暂停）；失败提示常驻，由用户下次操作带走
         (function () {
             document.querySelectorAll(".flash[data-auto-dismiss='true']").forEach(function (el) {

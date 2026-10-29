@@ -561,7 +561,8 @@ code {
 .hide-sm { display: table-cell; }
 
 @media (max-width: 768px) {
-    .nav-links { display: none; }
+    .nav-inner { height: auto; flex-wrap: wrap; padding: 8px 0; }
+    .nav-links { display: flex; flex-wrap: wrap; order: 5; width: 100%; }
     .nav-user { display: none; }
     .hide-sm { display: none; }
     .page { padding: 32px 0 48px; }
