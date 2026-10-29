@@ -44,6 +44,10 @@ public sealed class TaskRunnerOptions
     /// ping 失败计入作业重试/Failed，外部服务以「未按时收到 ping」告警。留空则不 ping。修改需重启。</summary>
     public string? HeartbeatPingUrl { get; set; }
 
+    /// <summary>单次作业执行的最长运行分钟数；超时以取消令牌通知作业（作业应周期性响应取消）。
+    /// 0 表示不限制。修改需重启。</summary>
+    public int MaxJobRuntimeMinutes { get; set; }
+
     public string NormalizeDashboardPath()
     {
         var path = string.IsNullOrWhiteSpace(DashboardPath) ? "/taskrunner" : DashboardPath.Trim();

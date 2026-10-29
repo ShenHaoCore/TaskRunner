@@ -19,6 +19,11 @@ public sealed class TaskConfig
     /// <summary>目标队列（来自契约标注，同步时覆盖；不可运维 API 修改）。</summary>
     public string Queue { get; set; } = "default";
 
+    /// <summary>生效队列：空白归一为 default。</summary>
+    public string EffectiveQueue => string.IsNullOrWhiteSpace(Queue)
+        ? Common.QueueNameGuard.Default
+        : Queue;
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }
