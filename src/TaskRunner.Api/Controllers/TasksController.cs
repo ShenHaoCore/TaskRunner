@@ -20,11 +20,38 @@ public sealed class TasksController(
 {
     [HttpGet(Name = "ListTasks")]
     [EndpointSummary("列表")]
+    [EndpointDescription("page/pageSize 分页（pageSize=0 返回全量）；支持 If-None-Match 缓存协商（命中返回 304）。")]
     [ProducesResponseType(typeof(IReadOnlyList<TaskConfigView>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<TaskConfigView>>> List(CancellationToken cancellationToken)
+    [ProducesResponseType(StatusCodes.Status304NotModified)]
+    public async Task<ActionResult<IReadOnlyList<TaskConfigView>>> List(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 0,
+        CancellationToken cancellationToken = default)
     {
         var configs = await repository.ListAsync(cancellationToken);
-        return Ok(monitoring.ReadTasks(configs));
+        var views = monitoring.ReadTasks(configs);
+
+        // 弱 ETag：数量 + 最大 UpdatedAt 指纹；命中 If-None-Match 返回 304
+        var maxUpdated = configs.Count == 0 ? DateTime.MinValue : configs.Max(item => item.UpdatedAt);
+        var etag = $"W/\"{configs.Count:x8}-{maxUpdated:yyyyMMddHHmmss}\"";
+        if (Request.Headers.IfNoneMatch.ToString()
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Contains(etag, StringComparer.Ordinal))
+        {
+            Response.Headers.ETag = etag;
+            return StatusCode(StatusCodes.Status304NotModified);
+        }
+
+        Response.Headers.ETag = etag;
+        Response.Headers["X-Total-Count"] = views.Count.ToString();
+
+        if (pageSize > 0)
+        {
+            page = Math.Max(1, page);
+            views = views.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        }
+
+        return Ok(views);
     }
 
     [HttpGet("statistics", Name = "GetTaskStatistics")]

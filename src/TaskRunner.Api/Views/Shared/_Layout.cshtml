@@ -83,6 +83,14 @@
             });
         });
 
+        // 服务端输出 UTC ISO 时间，按浏览器时区渲染
+        document.querySelectorAll("[data-local-time]").forEach(function (el) {
+            var raw = el.getAttribute("datetime");
+            if (!raw) { return; }
+            var normalized = /[zZ]$|[+-]\d\d:?\d\d$/.test(raw) ? raw : raw + "Z";
+            el.textContent = new Date(normalized).toLocaleString();
+        });
+
         // 成功提示 5 秒自动淡出（悬停暂停）；失败提示常驻，由用户下次操作带走
         (function () {
             document.querySelectorAll(".flash[data-auto-dismiss='true']").forEach(function (el) {

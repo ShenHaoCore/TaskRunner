@@ -2,6 +2,27 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 3.9.0 - 2026-10-30
+
+上批审查记录的架构项全部落地。
+
+### 升级到本版本要做什么
+
+- 调度轮询默认值调大：队列 1s→5s、周期任务变更 1s→15s（显式配置过的不受影响）；低延迟场景可在配置下调回
+- 运行台/首页的时间改为按浏览器时区渲染（服务端输出 UTC ISO）——此前按服务器时区显示
+- Worker 现在也会执行「迁移 → 同步 recurring」（与 Api 并行启动安全：advisory lock 串行化），部署顺序不再强依赖 Api 先行
+
+### 新增
+
+- `TaskConfigs` 并发令牌（PostgreSQL xmin）：启停/Cron 并发更新冲突自动重载重试，不再静默丢失更新
+- EF 迁移以 PostgreSQL 会话级 advisory lock 串行化
+- `GET /api/tasks` 分页（`page`/`pageSize`，0=全量）+ `X-Total-Count` + `If-None-Match` 304 缓存协商
+
+### 变更
+
+- 调度轮询默认值：队列 5s、周期任务变更 15s
+- 页面时间显示改为浏览器时区（`time[data-local-time]` + 前端格式化）
+
 ## 3.8.0 - 2026-10-29
 
 全面代码审查（对照 Hangfire 官方建议与高星调度平台惯例）后的改进批次。

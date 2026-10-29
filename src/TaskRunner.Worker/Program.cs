@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using Serilog;
 using TaskRunner.Core;
 using TaskRunner.Core.Common;
+using TaskRunner.Core.Services;
 using TaskRunner.Hangfire;
 
 var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { Args = args, ContentRootPath = AppContext.BaseDirectory });
@@ -15,6 +16,8 @@ builder.Services.AddSerilog((services, configuration) => configuration.ReadFrom.
 
 builder.Services.AddTaskRunnerCore(builder.Configuration);
 builder.Services.AddTaskRunnerHangfire(builder.Configuration, HangfireHostRole.Server);
+// Worker 侧同样跑「迁移 → 同步 recurring → 清理残留」：Api 故障/缺席时 Worker 独立完成协调（advisory lock 串行化）。
+builder.Services.AddHostedService<RecurringJobBootstrapper>();
 
 var host = builder.Build();
 var hangfireOptions = host.Services.GetRequiredService<IOptions<TaskRunnerOptions>>().Value;

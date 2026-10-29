@@ -22,6 +22,22 @@ public sealed class TaskConfigRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task RemoveMissing_EmptyDiscovery_NeverDeletes()
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        var repository = scope.ServiceProvider.GetRequiredService<ITaskConfigRepository>();
+        await repository.InitializeAsync(CancellationToken.None);
+
+        var discovered = new RecurringJobDescriptor("demo-job", "DemoJob", "*/5 * * * * *", "Demo.Job, Demo", typeof(string), "演示任务", true);
+        await repository.SyncDiscoveredAsync([discovered], CancellationToken.None);
+
+        // 空发现集（插件整体加载失败的保险）绝不触发删除
+        var removed = await repository.RemoveMissingAsync([], CancellationToken.None);
+        Assert.Empty(removed);
+        Assert.NotNull(await repository.FindAsync("demo-job", CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Sync_PreservesOperatorCronAndEnabledFlag()
     {
         await using var scope = _provider.CreateAsyncScope();

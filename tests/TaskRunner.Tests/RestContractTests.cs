@@ -177,6 +177,31 @@ public sealed class RestContractTests
     }
 
     [Fact]
+    public async Task List_SupportsPagination_AndETagNegotiation()
+    {
+        using var app = new ContractApp();
+        app.Seed(Seed.Demo(), Seed.Demo("second-job", "0 0 12 * * *"));
+
+        var full = await app.Client.GetAsync("/api/tasks");
+        Assert.Equal(HttpStatusCode.OK, full.StatusCode);
+        var etag = full.Headers.ETag?.ToString();
+        Assert.False(string.IsNullOrWhiteSpace(etag));
+        Assert.Equal("2", full.Headers.GetValues("X-Total-Count").Single());
+
+        // 命中 If-None-Match → 304
+        var conditional = new HttpRequestMessage(HttpMethod.Get, "/api/tasks");
+        conditional.Headers.IfNoneMatch.ParseAdd(etag);
+        var notModified = await app.Client.SendAsync(conditional);
+        Assert.Equal(HttpStatusCode.NotModified, notModified.StatusCode);
+
+        // 分页：pageSize=1 取第一页
+        var paged = await app.Client.GetAsync("/api/tasks?page=1&pageSize=1");
+        Assert.Equal("2", paged.Headers.GetValues("X-Total-Count").Single());
+        var body = await paged.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1, body.GetArrayLength());
+    }
+
+    [Fact]
     public async Task Statistics_ReturnsAllCounters()
     {
         using var app = new ContractApp();
