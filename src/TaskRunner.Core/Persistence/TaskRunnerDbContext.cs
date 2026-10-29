@@ -8,6 +8,13 @@ public sealed class TaskRunnerDbContext(DbContextOptions<TaskRunnerDbContext> op
 {
     public DbSet<TaskConfig> TaskConfigs => Set<TaskConfig>();
 
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        // xmin 是系统列并发令牌，无需迁移；EF9 的 PendingModelChangesWarning 在此为误报，忽略。
+        optionsBuilder.ConfigureWarnings(w =>
+            w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         var task = modelBuilder.Entity<TaskConfig>();
