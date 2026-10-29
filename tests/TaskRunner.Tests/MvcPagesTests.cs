@@ -24,6 +24,18 @@ public sealed class MvcPagesTests
     }
 
     [Fact]
+    public async Task Run_AnonymousBrowser_RedirectsToLogin_WithReturnUrl()
+    {
+        using var app = NewApp();
+        var client = app.CreateClient();
+        client.DefaultRequestHeaders.Accept.ParseAdd("text/html");
+
+        var response = await client.GetAsync("/run");
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.StartsWith("/login?returnUrl=", response.Headers.Location!.ToString());
+    }
+
+    [Fact]
     public async Task Login_Get_ReturnsAccountPasswordForm()
     {
         using var app = NewApp();
