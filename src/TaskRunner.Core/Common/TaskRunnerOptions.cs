@@ -8,9 +8,9 @@ public sealed class TaskRunnerOptions
 
     public string DashboardPath { get; set; } = "/taskrunner";
 
-    public int SchedulePollingIntervalSeconds { get; set; } = 1;
+    public int SchedulePollingIntervalSeconds { get; set; } = 15;
 
-    public int QueuePollIntervalSeconds { get; set; } = 1;
+    public int QueuePollIntervalSeconds { get; set; } = 5;
 
     public int WorkerCount { get; set; } = 5;
 

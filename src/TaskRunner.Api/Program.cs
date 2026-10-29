@@ -6,6 +6,7 @@ using TaskRunner.Api.Hosting;
 using TaskRunner.Api.Services;
 using TaskRunner.Core;
 using TaskRunner.Core.Common;
+using TaskRunner.Core.Services;
 using TaskRunner.Hangfire;
 
 var builder = WebApplication.CreateBuilder(args);

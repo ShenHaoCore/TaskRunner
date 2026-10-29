@@ -37,7 +37,7 @@
                     <td>
                         <span class="badge @(task.IsEnabled ? "badge-success" : "badge-muted")">@(task.IsEnabled ? "启用" : "停用")</span>
                     </td>
-                    <td class="hide-sm muted">@(task.LastExecution?.ToLocalTime().ToString("MM-dd HH:mm:ss") ?? "—")</td>
+                    <td class="hide-sm muted"><time data-local-time datetime="@(task.LastExecution?.ToString("o") ?? "")">@(task.LastExecution is null ? "—" : task.LastExecution?.ToString("o"))</time></td>
                     <td class="cell-action">
                         <form method="post" asp-controller="Run" asp-action="Trigger" asp-route-jobId="@task.JobId" data-submit-once>
                             <button class="btn btn-primary btn-sm" type="submit"
