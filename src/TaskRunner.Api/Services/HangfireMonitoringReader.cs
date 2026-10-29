@@ -31,6 +31,9 @@ public sealed class HangfireMonitoringReader(JobStorage storage, ILogger<Hangfir
             stats.Servers);
     }
 
+    /// <summary>读取单任务视图（列表逻辑的便捷封装）。</summary>
+    public TaskConfigView ReadOne(TaskConfig config) => ReadTasks([config])[0];
+
     public IReadOnlyList<TaskConfigView> ReadTasks(IReadOnlyList<TaskConfig> configs)
     {
         var recurring = ReadRecurringJobs();
@@ -44,7 +47,7 @@ public sealed class HangfireMonitoringReader(JobStorage storage, ILogger<Hangfir
                 config.IsEnabled,
                 config.JobType,
                 config.Description,
-                string.IsNullOrWhiteSpace(config.Queue) ? "default" : config.Queue,
+                config.EffectiveQueue,
                 job?.LastExecution,
                 job?.NextExecution,
                 job?.LastJobState,

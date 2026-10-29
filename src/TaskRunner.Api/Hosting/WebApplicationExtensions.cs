@@ -1,5 +1,7 @@
+using System.Net;
 using System.Reflection;
 using Hangfire;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
 using Serilog;
@@ -48,8 +50,32 @@ public static class WebApplicationExtensions
             };
         });
 
-        app.UseExceptionHandler();
-        app.UseStaticFiles();
+        // 反代（nginx 同机）下取真实客户端 IP：登录限流按真实 IP 分桶，日志与 Secure Cookie 也依赖它。
+        // KnownProxies 仅放行本机回环，直连部署时外来 Forwarded 头一律不信任。
+        var forwarded = new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+        };
+        forwarded.KnownProxies.Clear();
+        forwarded.KnownProxies.Add(IPAddress.Loopback);
+        forwarded.KnownProxies.Add(IPAddress.IPv6Loopback);
+        app.UseForwardedHeaders(forwarded);
+
+        // 基础安全响应头（CSP/X-Frame 之外的通用项；CSP 由反代按部署文档配置）
+        app.Use((context, next) =>
+        {
+            context.Response.Headers.XContentTypeOptions = "nosniff";
+            context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+            return next();
+        });
+
+        // 静态资源带版本号（内容寻址），可长缓存
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            OnPrepareResponse = static ctx =>
+                ctx.Context.Response.Headers.CacheControl = "public,max-age=31536000,immutable"
+        });
+
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseRateLimiter();
@@ -97,7 +123,8 @@ public static class WebApplicationExtensions
         });
 
         app.MapControllers();
-        app.MapGet("/info", (HangfireMonitoringReader reader) =>
+        app.MapHealthChecks("/health");
+        app.MapGet("/info", (HangfireMonitoringReader reader, HttpContext http) =>
         {
             DateTime? heartbeatLast = null;
             DateTime? heartbeatNext = null;
@@ -108,13 +135,31 @@ public static class WebApplicationExtensions
                 heartbeatNext = heartbeat?.NextExecution;
             }
 
+            var version = typeof(WebApplicationExtensions).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                ?? typeof(WebApplicationExtensions).Assembly.GetName().Version?.ToString();
+
+            // 匿名（生产）只保留最小暴露；完整信息需管理员凭据（首页按登录态取用）
+            var authenticated = app.Environment.IsDevelopment()
+                || AdminCredentials.IsAuthorized(http, hangfireOptions, isDevelopment: false);
+            if (!authenticated)
+            {
+                return Results.Ok(new
+                {
+                    name = "TaskRunner",
+                    status = "ok",
+                    version = version,
+                    tasks = "/api/tasks",
+                    authLogin = "/api/auth/login"
+                });
+            }
+
             return Results.Ok(new
             {
                 name = "TaskRunner",
+                status = "ok",
                 // 发布时由 CI 注入 -p:InformationalVersion=版本号（随 tag），本机构建回退程序集版本
-                version = typeof(WebApplicationExtensions).Assembly
-                    .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-                    ?? typeof(WebApplicationExtensions).Assembly.GetName().Version?.ToString(),
+                version = version,
                 environment = app.Environment.EnvironmentName,
                 role = hangfireRole.ToString(),
                 readOnly = hangfireOptions.ReadOnlyMode,
@@ -131,7 +176,6 @@ public static class WebApplicationExtensions
             });
         }).AllowAnonymous();
 
-        app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 
         return app;
     }

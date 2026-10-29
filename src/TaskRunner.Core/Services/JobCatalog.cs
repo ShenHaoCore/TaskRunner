@@ -66,6 +66,13 @@ public static class RecurringJobScanner
         }
         catch (ReflectionTypeLoadException ex)
         {
+            if (ex.LoaderExceptions is { Length: > 0 })
+            {
+                // 残缺的发现结果会让启动同步误删任务配置（RemoveMissing/Prune），必须显式失败。
+                throw new InvalidOperationException(
+                    $"程序集 {assembly.GetName().Name} 部分类型加载失败，已中止任务发现。", ex);
+            }
+
             return ex.Types.Where(type => type is not null)!;
         }
     }

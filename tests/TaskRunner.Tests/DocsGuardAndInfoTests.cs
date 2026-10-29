@@ -80,7 +80,15 @@ public sealed class DocsGuardAndInfoTests
     {
         using var app = NewProductionApp();
 
-        var json = await app.Client.GetStringAsync("/info");
+        // 匿名只保留最小暴露；完整信息（environment/heartbeat 等）需管理员凭据
+        var anonymous = await app.Client.GetAsync("/info");
+        var anonymousBody = await anonymous.Content.ReadAsStringAsync();
+        Assert.Contains("\"status\"", anonymousBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"environment\"", anonymousBody, StringComparison.Ordinal);
+
+        var authorized = app.CreateClient();
+        authorized.DefaultRequestHeaders.Add(AdminAuthDefaults.HeaderName, Key);
+        var json = await authorized.GetStringAsync("/info");
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 

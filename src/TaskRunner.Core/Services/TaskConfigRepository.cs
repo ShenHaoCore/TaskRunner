@@ -106,6 +106,12 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
         IReadOnlyCollection<string> discoveredJobIds,
         CancellationToken cancellationToken)
     {
+        // 空发现集（如插件程序集整体加载失败）绝不触发删除——那是配置大扫除，不是同步。
+        if (discoveredJobIds.Count == 0)
+        {
+            return [];
+        }
+
         var discovered = discoveredJobIds.ToHashSet(StringComparer.Ordinal);
         var all = await db.TaskConfigs.ToListAsync(cancellationToken);
         var orphans = all.Where(item => !discovered.Contains(item.JobId)).ToList();

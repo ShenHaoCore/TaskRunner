@@ -50,8 +50,13 @@ public sealed class RunController(
             return RedirectToAction(nameof(Index));
         }
 
-        var queue = string.IsNullOrWhiteSpace(config.Queue) ? QueueNameGuard.Default : config.Queue;
-        var queueJobId = scheduler.Enqueue(config.JobId, config.JobType, queue);
+        if (!config.IsEnabled)
+        {
+            TempData.SetFlashError("任务已暂停，请先在任务列表或 Dashboard 恢复后再触发。");
+            return RedirectToAction(nameof(Index));
+        }
+
+        var queueJobId = scheduler.Enqueue(config.JobId, config.JobType, config.EffectiveQueue);
         TempData.SetFlashSuccess($"已入队 {config.JobId} → {queueJobId}");
         return RedirectToAction(nameof(Index));
     }

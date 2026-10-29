@@ -33,6 +33,9 @@ builder.Services.AddHostedService<RecurringJobBootstrapper>();
 builder.Services.AddSingleton<HangfireMonitoringReader>();
 builder.Services.AddScoped<ReadOnlyGuardFilter>();
 builder.Services.AddProblemDetails();
+builder.Services.AddHealthChecks()
+    .AddCheck<TaskRunnerDbHealthCheck>("database")
+    .AddCheck<HangfireStorageHealthCheck>("hangfire");
 builder.Services.AddControllersWithViews(options => options.Filters.AddService<ReadOnlyGuardFilter>());
 builder.Services.AddOpenApi();
 
