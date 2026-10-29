@@ -31,7 +31,10 @@ public sealed class AuthController(IOptions<TaskRunnerOptions> options, IHostEnv
 
         if (!AdminCredentials.VerifyLogin(request.Username, request.Password, options.Value))
         {
-            return Unauthorized(new { message = "账号或密码无效。" });
+            return Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "登录失败",
+                detail: "账号或密码无效。");
         }
 
         await HttpContext.SignInAsync(

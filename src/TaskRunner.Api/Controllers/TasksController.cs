@@ -20,6 +20,7 @@ public sealed class TasksController(
 {
     [HttpGet(Name = "ListTasks")]
     [EndpointSummary("列表")]
+    [ProducesResponseType(typeof(IReadOnlyList<TaskConfigView>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<TaskConfigView>>> List(CancellationToken cancellationToken)
     {
         var configs = await repository.ListAsync(cancellationToken);
@@ -33,11 +34,13 @@ public sealed class TasksController(
 
     [HttpGet("{jobId}", Name = "GetTask")]
     [EndpointSummary("详情")]
+    [ProducesResponseType(typeof(TaskConfigView), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TaskConfigView>> Get(string jobId, CancellationToken cancellationToken)
     {
         var config = await repository.FindAsync(jobId, cancellationToken);
-        if (config is null) { return NotFound(new { message = $"任务不存在：{jobId}" }); }
-        return Ok(monitoring.ReadTasks([config])[0]);
+        if (config is null) { return TaskNotFound(jobId); }
+        return Ok(monitoring.ReadOne(config));
     }
 
     [HttpGet("{jobId}/history", Name = "GetTaskHistory")]
@@ -48,31 +51,46 @@ public sealed class TasksController(
         CancellationToken cancellationToken = default)
     {
         var config = await repository.FindAsync(jobId, cancellationToken);
-        if (config is null) { return NotFound(new { message = $"任务不存在：{jobId}" }); }
+        if (config is null) { return TaskNotFound(jobId); }
         return Ok(monitoring.ReadHistory(jobId, limit));
     }
 
     [HttpPost("{jobId}/trigger", Name = "TriggerTask")]
     [EndpointSummary("触发")]
-    [EndpointDescription("立即执行，或 body 传 runAt / delaySeconds 预约一次。")]
+    [EndpointDescription("立即执行，或 body 传 runAt / delaySeconds 预约一次。异步受理：返回 202，执行结果见作业历史。")]
+    [ProducesResponseType(typeof(QueueJobResult), StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<QueueJobResult>> Trigger(
         string jobId,
         [FromBody] TriggerRequest? request,
         CancellationToken cancellationToken)
     {
         var config = await repository.FindAsync(jobId, cancellationToken);
-        if (config is null) { return NotFound(new { message = $"任务不存在：{jobId}" }); }
+        if (config is null) { return TaskNotFound(jobId); }
+        if (!config.IsEnabled)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "任务已暂停",
+                detail: $"任务 {config.JobId} 已暂停，请先恢复再触发。");
+        }
 
-        var queue = string.IsNullOrWhiteSpace(config.Queue) ? QueueNameGuard.Default : config.Queue;
+        var queue = config.EffectiveQueue;
         if (request?.RunAt is null && request?.DelaySeconds is null)
         {
             var queueJobId = scheduler.Enqueue(config.JobId, config.JobType, queue);
-            return Ok(new QueueJobResult(config.JobId, queueJobId));
+            return AcceptedAtAction(nameof(Get), new { jobId = config.JobId },
+                new QueueJobResult(config.JobId, queueJobId));
         }
 
         if (request.RunAt is not null && request.DelaySeconds is not null)
         {
-            return BadRequest(new { message = "runAt 与 delaySeconds 不能同时指定。" });
+            return Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "参数冲突",
+                detail: "runAt 与 delaySeconds 不能同时指定。");
         }
 
         DateTimeOffset runAt;
@@ -84,7 +102,10 @@ public sealed class TasksController(
         {
             if (request.DelaySeconds is null or <= 0)
             {
-                return BadRequest(new { message = "delaySeconds 必须为正整数。" });
+                return Problem(
+                    statusCode: StatusCodes.Status400BadRequest,
+                    title: "参数无效",
+                    detail: "delaySeconds 必须为正整数。");
             }
 
             runAt = DateTimeOffset.UtcNow.AddSeconds(request.DelaySeconds.Value);
@@ -92,11 +113,15 @@ public sealed class TasksController(
 
         if (runAt <= DateTimeOffset.UtcNow)
         {
-            return BadRequest(new { message = "runAt 必须是未来时刻。" });
+            return Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "参数无效",
+                detail: "runAt 必须是未来时刻。");
         }
 
         var scheduledId = scheduler.Schedule(config.JobId, config.JobType, queue, runAt);
-        return Ok(new QueueJobResult(config.JobId, scheduledId, Scheduled: true));
+        return AcceptedAtAction(nameof(Get), new { jobId = config.JobId },
+            new QueueJobResult(config.JobId, scheduledId, Scheduled: true));
     }
 
     [HttpPost("{jobId}/pause", Name = "PauseTask")]
@@ -104,9 +129,9 @@ public sealed class TasksController(
     public async Task<ActionResult<TaskConfigView>> Pause(string jobId, CancellationToken cancellationToken)
     {
         var config = await repository.SetEnabledAsync(jobId, false, cancellationToken);
-        if (config is null) { return NotFound(new { message = $"任务不存在：{jobId}" }); }
+        if (config is null) { return TaskNotFound(jobId); }
         scheduler.RemoveRecurring(config.JobId);
-        return Ok(monitoring.ReadTasks([config])[0]);
+        return Ok(monitoring.ReadOne(config));
     }
 
     [HttpPost("{jobId}/resume", Name = "ResumeTask")]
@@ -114,12 +139,12 @@ public sealed class TasksController(
     public async Task<ActionResult<TaskConfigView>> Resume(string jobId, CancellationToken cancellationToken)
     {
         var config = await repository.FindAsync(jobId, cancellationToken);
-        if (config is null) { return NotFound(new { message = $"任务不存在：{jobId}" }); }
+        if (config is null) { return TaskNotFound(jobId); }
         try { CronExpressionGuard.EnsureValid(config.CronExpr); }
-        catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (ArgumentException ex) { return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Cron 无效", detail: ex.Message); }
         config = await repository.SetEnabledAsync(jobId, true, cancellationToken);
         scheduler.AddOrUpdateRecurring(config!.JobId, config.JobType, config.CronExpr, config.Queue);
-        return Ok(monitoring.ReadTasks([config])[0]);
+        return Ok(monitoring.ReadOne(config));
     }
 
     [Authorize(Policy = AdminAuthDefaults.Policy)]
@@ -128,10 +153,16 @@ public sealed class TasksController(
     public async Task<ActionResult<TaskConfigView>> UpdateCron(string jobId, UpdateCronRequest request, CancellationToken cancellationToken)
     {
         try { CronExpressionGuard.EnsureValid(request.Cron); }
-        catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (ArgumentException ex) { return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Cron 无效", detail: ex.Message); }
         var config = await repository.UpdateCronAsync(jobId, request.Cron, cancellationToken);
-        if (config is null) { return NotFound(new { message = $"任务不存在：{jobId}" }); }
-        if (config.IsEnabled) { scheduler.AddOrUpdateRecurring(config.JobId, config.JobType, config.CronExpr, config.Queue); }
-        return Ok(monitoring.ReadTasks([config])[0]);
+        if (config is null) { return TaskNotFound(jobId); }
+        if (config.IsEnabled) { scheduler.AddOrUpdateRecurring(config.JobId, config.JobType, config.CronExpr, config.EffectiveQueue); }
+        return Ok(monitoring.ReadOne(config));
     }
+
+    private ActionResult TaskNotFound(string jobId) =>
+        Problem(
+            statusCode: StatusCodes.Status404NotFound,
+            title: "任务不存在",
+            detail: $"任务不存在：{jobId}");
 }

@@ -60,8 +60,8 @@ public sealed class RestContractTests
         {
             var response = await app.Client.PutAsJsonAsync("/api/tasks/demo-job/cron", new { cron = invalid });
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            var message = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("message").GetString();
-            Assert.False(string.IsNullOrWhiteSpace(message));
+            var detail = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("detail").GetString();
+            Assert.False(string.IsNullOrWhiteSpace(detail));
         }
 
         var body = await app.GetJsonAsync("/api/tasks/demo-job");
@@ -106,7 +106,7 @@ public sealed class RestContractTests
         app.Seed(Seed.Demo());
 
         var response = await app.Client.PostAsync("/api/tasks/demo-job/trigger", null);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("demo-job", body.GetProperty("jobId").GetString());
@@ -121,7 +121,7 @@ public sealed class RestContractTests
         app.Seed(Seed.Demo(queue: "critical"));
 
         var response = await app.Client.PostAsync("/api/tasks/demo-job/trigger", null);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
         Assert.Contains("demo-job|critical", app.Scheduler.Enqueued);
 
         var body = await app.GetJsonAsync("/api/tasks/demo-job");
@@ -136,7 +136,7 @@ public sealed class RestContractTests
         var runAt = DateTimeOffset.UtcNow.AddMinutes(5);
 
         var response = await app.Client.PostAsJsonAsync("/api/tasks/demo-job/trigger", new { runAt });
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.True(body.GetProperty("scheduled").GetBoolean());
@@ -161,6 +161,19 @@ public sealed class RestContractTests
             new { runAt = DateTimeOffset.UtcNow.AddMinutes(5), delaySeconds = 60 });
         Assert.Equal(HttpStatusCode.BadRequest, both.StatusCode);
         Assert.Empty(app.Scheduler.Scheduled);
+    }
+
+    [Fact]
+    public async Task Trigger_PausedTask_Returns409Conflict()
+    {
+        using var app = new ContractApp();
+        app.Seed(Seed.Demo());
+
+        await app.Client.PostAsync("/api/tasks/demo-job/pause", null);
+        var response = await app.Client.PostAsync("/api/tasks/demo-job/trigger", null);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("已暂停", await response.Content.ReadAsStringAsync());
+        Assert.Empty(app.Scheduler.Enqueued);
     }
 
     [Fact]
