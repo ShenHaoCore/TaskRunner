@@ -462,7 +462,7 @@ code {
 /* ── 提示条（flash：语义色仅 success/danger） ────────────────── */
 
 .flash {
-    margin: 16px 0 0;
+    margin: 0 0 20px;
     padding: 12px 16px;
     border: 1px solid var(--hairline);
     border-radius: var(--radius-md);
