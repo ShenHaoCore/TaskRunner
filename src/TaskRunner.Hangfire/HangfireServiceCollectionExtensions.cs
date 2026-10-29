@@ -111,7 +111,9 @@ public static class HangfireServiceCollectionExtensions
         GlobalJobFilters.Filters.Add(new AutomaticRetryAttribute
         {
             Attempts = attempts,
-            DelaysInSeconds = [2, 4, 8],
+            DelaysInSeconds = Enumerable.Range(0, Math.Max(1, attempts))
+                .Select(i => (int)Math.Min(3600, Math.Round(2 * Math.Pow(2, i))))
+                .ToArray(),
             OnAttemptsExceeded = AttemptsExceededAction.Fail,
             LogEvents = true
         });

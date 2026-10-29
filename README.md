@@ -49,7 +49,7 @@ public sealed class MyJob : IRecurringJob
 
 Cron 支持 5/6 位。已存在任务的 Cron / 启用状态以 `TaskConfigs` 为准；队列来自契约标注（同步覆盖，不可运维改）。Worker 订阅列表配置 `Hangfire:Queues`（默认 `["default"]`），未订阅的队列会积压。
 
-运维：`POST /api/tasks/{jobId}/trigger` 立即执行；body 传 `{ "runAt": "..." }` 或 `{ "delaySeconds": 60 }` 预约一次。浏览器可用 `/run` 过滤任务并一键运行（需先 `/login`）。
+运维：`POST /api/tasks/{jobId}/trigger` 立即执行（异步受理，返回 **202** 与 queueJobId）；body 传 `{ "runAt": "..." }` 或 `{ "delaySeconds": 60 }` 预约一次；已暂停任务返回 409。浏览器可用 `/run` 过滤任务并一键运行（需先 `/login`）。
 
 ## PostgreSQL / 生产
 

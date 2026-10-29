@@ -7,7 +7,7 @@
 </section>
 
 <form method="get" class="toolbar">
-    <input class="input" type="search" name="q" value="@Model.Query" placeholder="过滤 JobId / 显示名…" autocomplete="off" />
+    <input class="input" type="search" name="q" value="@Model.Query" placeholder="过滤 JobId / 显示名…" aria-label="按 JobId 或显示名过滤任务" autocomplete="off" />
     <button class="btn btn-secondary" type="submit">过滤</button>
     <a class="btn btn-tertiary" href="/run">重置</a>
 </form>
@@ -39,9 +39,10 @@
                     </td>
                     <td class="hide-sm muted">@(task.LastExecution?.ToLocalTime().ToString("MM-dd HH:mm:ss") ?? "—")</td>
                     <td class="cell-action">
-                        <form method="post" asp-controller="Run" asp-action="Trigger" asp-route-jobId="@task.JobId">
-                            <button class="btn btn-primary btn-sm" type="submit" @(Model.ReadOnly ? "disabled" : null)
-                                    title="@(Model.ReadOnly ? "只读模式下触发被禁用" : null)">立即运行</button>
+                        <form method="post" asp-controller="Run" asp-action="Trigger" asp-route-jobId="@task.JobId" data-submit-once>
+                            <button class="btn btn-primary btn-sm" type="submit"
+                                    @((Model.ReadOnly || !task.IsEnabled) ? "disabled" : null)
+                                    title="@(Model.ReadOnly ? "只读模式下触发被禁用" : !task.IsEnabled ? "任务已暂停，请先恢复" : null)">立即运行</button>
                         </form>
                     </td>
                 </tr>

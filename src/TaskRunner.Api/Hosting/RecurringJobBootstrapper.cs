@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using TaskRunner.Core.Common;
 using TaskRunner.Core.Services;
 
 namespace TaskRunner.Api.Hosting;
@@ -9,6 +11,7 @@ public sealed class RecurringJobBootstrapper(
     IServiceScopeFactory scopeFactory,
     IJobCatalog catalog,
     ITaskScheduler scheduler,
+    IOptions<TaskRunnerOptions> options,
     ILogger<RecurringJobBootstrapper> logger) : IHostedLifecycleService
 {
     public Task StartingAsync(CancellationToken cancellationToken) => SyncAsync(cancellationToken);
@@ -22,6 +25,32 @@ public sealed class RecurringJobBootstrapper(
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     public Task StoppedAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    /// <summary>契约声明的队列必须被 Worker 订阅，否则作业将永远滞留 Enqueued（静默丢单）。</summary>
+    private void ValidateQueuesCovered()
+    {
+        var subscribed = options.Value.Queues.ToHashSet(StringComparer.Ordinal);
+        var uncovered = catalog.RecurringJobs
+            .Select(job => QueueNameGuard.Normalize(job.Queue))
+            .Distinct(StringComparer.Ordinal)
+            .Where(queue => !subscribed.Contains(queue))
+            .ToList();
+        if (uncovered.Count > 0)
+        {
+            logger.LogError(
+                "任务声明了未被订阅的队列 {Queues}（Hangfire:Queues={Configured}）。这些作业将滞留 Enqueued，请在 Worker 配置中订阅。",
+                string.Join(", ", uncovered), string.Join(", ", options.Value.Queues));
+        }
+    }
+
+    /// <summary>配了死信 ping 却关了心跳，外部告警永远不会生效——启动时明确警告。</summary>
+    private void WarnHeartbeatCombo()
+    {
+        if (!string.IsNullOrWhiteSpace(options.Value.HeartbeatPingUrl) && !options.Value.HeartbeatEnabled)
+        {
+            logger.LogWarning("已配置 Hangfire:HeartbeatPingUrl 但 HeartbeatEnabled=false：死信告警不会生效。");
+        }
+    }
 
     private async Task SyncAsync(CancellationToken cancellationToken)
     {
@@ -48,6 +77,9 @@ public sealed class RecurringJobBootstrapper(
         {
             logger.LogInformation("已从 Hangfire 清理残留 recurring {JobId}。", jobId);
         }
+
+        ValidateQueuesCovered();
+        WarnHeartbeatCombo();
 
         var configs = await repository.ListAsync(cancellationToken);
         var discovered = discoveredIds.ToHashSet(StringComparer.Ordinal);

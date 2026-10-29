@@ -87,6 +87,7 @@ sudo nano /etc/default/taskrunner-worker   # 仅 Worker（可选覆盖）
 | `taskrunner-api` | `Hangfire__CookieSecure` | 可选 | TLS 反代置 `true`，默认 `false` |
 | `taskrunner-worker` | `Hangfire__WorkerCount` | 可选 | Worker 并发数，默认 5 |
 | `taskrunner-worker` | `Hangfire__Queues__0` 等 | 可选 | 订阅队列（默认仅 `default`）；任务声明了其它队列时须列出 |
+| `taskrunner-worker` | `Hangfire__MaxJobRuntimeMinutes` | 可选 | 单次作业最长运行分钟数，超时以取消令牌通知作业（作业应响应取消）；`0`=不限，默认不限 |
 | `taskrunner-worker` | `Hangfire__HeartbeatPingUrl` | 可选 | 心跳死信开关：配置后心跳成功即 POST 该地址（如 healthchecks.io 的 check URL），失败计入重试/Failed；外部服务「未按时收到 ping」即告警。留空不 ping |
 
 启动并验证：
