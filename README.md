@@ -18,8 +18,10 @@ dotnet run --project src/TaskRunner.Api
 
 `setup-dev-secrets` 写入本机 User Secrets（Api/Worker 共用 `UserSecretsId`）。开发环境 Api 为 `Combined`，**不必**再开 Worker；与 WSL 内 `taskrunner-worker` **不要同时**连同一库抢 Server。
 
-- 首页：http://localhost:5088
+- 首页（仪表盘）：http://localhost:5088
+- 任务运行台（过滤 + 一键运行）：http://localhost:5088/run
 - Dashboard：http://localhost:5088/taskrunner
+- 健康检查（业务库 + Hangfire 存储实探）：http://localhost:5088/health
 - Scalar：http://localhost:5088/scalar
 - 任务 API：http://localhost:5088/api/tasks
 
@@ -32,7 +34,11 @@ dotnet run --project src/TaskRunner.Api
 | Development | Dashboard / 写操作免密钥 |
 | Production | 配置 `Hangfire:AdminApiKey`（机器调用：头 `X-TaskRunner-Admin` 或 Basic）；浏览器用 `/login` 表单，凭 `Hangfire:AdminUsername` / `Hangfire:AdminPassword` 登录签发会话 Cookie（非明文密码） |
 
-只读由配置 `Hangfire:ReadOnlyMode` 控制（改配置需重启）。
+未登录的浏览器访问 `/taskrunner`、`/run` 等受保护页面时自动重定向到 `/login`（登录后回到原页面）；机器请求保持 `401`。只读由配置 `Hangfire:ReadOnlyMode` 控制（改配置需重启）。
+
+## 运维页面（MVC）
+
+自定义页面与 Hangfire Dashboard 同站：首页（运行概览 + 入口）、`/login`、`/run` 运行台，均为 MVC 服务端渲染，采用 Linear 风格设计系统（深色默认，首访跟随系统偏好，右上角可切换）。未登录访问受保护页自动跳转登录页（带 returnUrl）。运行台支持按名称过滤、一键触发（成功提示 5 秒自动消失，失败提示常驻）、暂停任务禁用触发；时间显示按浏览器时区渲染。
 
 ## 新增任务
 
@@ -47,13 +53,13 @@ public sealed class MyJob : IRecurringJob
 }
 ```
 
-Cron 支持 5/6 位。已存在任务的 Cron / 启用状态以 `TaskConfigs` 为准；队列来自契约标注（同步覆盖，不可运维改）。Worker 订阅列表配置 `Hangfire:Queues`（默认 `["default"]`），未订阅的队列会积压。
+Cron 支持 5/6 位。已存在任务的 Cron / 启用状态以 `TaskConfigs` 为准；队列来自契约标注（同步覆盖，不可运维改）。Worker 订阅列表配置 `Hangfire:Queues`（默认 `["default"]`），未订阅的队列会积压（启动时打错误日志）。作业应周期性响应取消；可配 `Hangfire:MaxJobRuntimeMinutes` 兜底单次运行时限（0=不限）。
 
-运维：`POST /api/tasks/{jobId}/trigger` 立即执行（异步受理，返回 **202** 与 queueJobId）；body 传 `{ "runAt": "..." }` 或 `{ "delaySeconds": 60 }` 预约一次；已暂停任务返回 409。浏览器可用 `/run` 过滤任务并一键运行（需先 `/login`）。
+运维 API：`GET /api/tasks` 支持 `page`/`pageSize` 分页（`X-Total-Count`）与 `If-None-Match` 304 缓存协商；错误响应统一 RFC 7807 ProblemDetails。`POST /api/tasks/{jobId}/trigger` 立即执行（异步受理，返回 **202** 与 queueJobId）；body 传 `{ "runAt": "..." }` 或 `{ "delaySeconds": 60 }` 预约一次；已暂停任务返回 409。启停/Cron 并发更新以 PostgreSQL `xmin` 行版本保护，冲突自动重试。浏览器可用 `/run` 过滤任务并一键运行（需先 `/login`）。
 
 ## PostgreSQL / 生产
 
-调度轮询默认 5s（队列）/15s（周期任务变更），低延迟场景可在配置下调回 1s。只需一个数据库 `taskrunner` 与一个连接字符串 `ConnectionStrings:Default`：Hangfire 表位于同库的 `hangfire` schema，业务表 `TaskConfigs` 由 EF 迁移在 **Api 启动时**自动应用（也可选手跑 `./scripts/ef-database-update.ps1` / `.sh`）。公共配置在 `src/appsettings.json`；本地连接串用 User Secrets，生产用环境变量并设置 `Hangfire:AdminApiKey`。文件日志写在各宿主输出目录的 `logs/`（`BaseDirectory`）。成功作业默认保留 60 分钟（`SucceededJobExpirationMinutes`）。
+调度轮询默认 5s（队列）/15s（周期任务变更），低延迟场景可在配置下调回 1s。只需一个数据库 `taskrunner` 与一个连接字符串 `ConnectionStrings:Default`：Hangfire 表位于同库的 `hangfire` schema，业务表 `TaskConfigs` 由 EF 迁移自动应用——**Api 与 Worker 都会执行「迁移 → 同步 recurring → 清理残留」**（EF 迁移以 PostgreSQL advisory lock 串行化），部署顺序不强依赖 Api 先行（也可选手跑 `./scripts/ef-database-update.ps1` / `.sh`）。公共配置在 `src/appsettings.json`；本地连接串用 User Secrets，生产用环境变量并设置 `Hangfire:AdminApiKey`。文件日志写在各宿主输出目录的 `logs/`（`BaseDirectory`）。成功作业默认保留 60 分钟（`SucceededJobExpirationMinutes`）；`TaskConfigs` 以 PostgreSQL `xmin` 行版本做并发保护。
 
 ### 多机部署（每机自带 PostgreSQL）
 
