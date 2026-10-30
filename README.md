@@ -34,7 +34,7 @@ dotnet run --project src/TaskRunner.Api
 | Development | Dashboard / 写操作免密钥 |
 | Production | 配置 `Hangfire:AdminApiKey`（机器调用：头 `X-TaskRunner-Admin` 或 Basic）；浏览器用 `/login` 表单，凭 `Hangfire:AdminUsername` / `Hangfire:AdminPassword` 登录签发会话 Cookie（非明文密码） |
 
-未登录的浏览器访问 `/taskrunner`、`/run` 等受保护页面时自动重定向到 `/login`（登录后回到原页面）；机器请求保持 `401`。只读由配置 `Hangfire:ReadOnlyMode` 控制（改配置需重启）。
+未登录的浏览器访问 `/taskrunner`、`/run` 等受保护页面时自动重定向到 `/login`（登录后回到原页面）；机器请求保持 `401`。只读由配置 `Hangfire:ReadOnlyMode` 控制（改配置需重启）。会话 Cookie 有效期 `Hangfire:SessionCookieDays`（默认 7 天，滑动过期）；登录接口按客户端 IP 限流 `Hangfire:LoginRateLimitPerMinute`（默认 5 次/分钟，仅生产生效）。应用端默认输出安全响应头（`X-Frame-Options: DENY`、`Content-Security-Policy: frame-ancestors 'none'`、`X-Content-Type-Options`、`Referrer-Policy`）；未捕获异常与 404 走统一错误页（页面渲染品牌化视图，`/api` 路径返回 ProblemDetails）。
 
 ## 运维页面（MVC）
 

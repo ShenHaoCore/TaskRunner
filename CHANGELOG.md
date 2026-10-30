@@ -2,6 +2,45 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 3.10.0 - 未发布
+
+全面质量轮：后端正确性修复、前端安全与体验、测试补盲（78 → 101 个测试）与代码打磨。
+
+### 升级到本版本要做什么
+
+- 可选新增配置：`Hangfire:SessionCookieDays`（会话 Cookie 有效期天数，默认 7）、`Hangfire:LoginRateLimitPerMinute`（登录限流，默认 5 次/分钟）——不配置行为与原默认一致
+- `deploy-ubuntu-vm.ps1` 现在会对上传包做 SHA256 对账校验（与 .sh 版对齐；此前 CHANGELOG 3.5.0 的声明在 Windows 链路上未兑现）
+
+### 修复
+
+- 心跳死信 ping 的 10s HttpClient 超时从未生效：作业此前注入的是默认客户端（100s 超时），外部服务挂起时会长时间占住 Worker——改为经 `IHttpClientFactory` 取命名客户端
+- Api/Worker 双进程并发首启竞态：advisory lock 此前只包住迁移，「同步配置 + 清理残留」仍在锁外，两侧同时插入相同 JobId 会撞唯一索引并使宿主启动失败——整个启动编排移入会话级锁
+- 队列覆盖校验误报：配置侧未归一化（如值带尾部空白）会假报「队列未订阅」——两侧统一经 `QueueNameGuard.NormalizeSet`
+- 互斥执行过滤器类型解析失败时静默放弃互斥（并发执行可能真实发生）——现记录 Warning
+- 同一次作业失败不再重复记两层 Error（JobExecutor 层移除，保留 Gateway 层带耗时与 Console 输出的记录）
+- `GET /api/tasks` 的 304 快路径前置：命中缓存协商时不再白读一遍 Hangfire 监控数据
+- 运行台防重复提交不再「3 秒后无条件恢复」（慢网络下可重复入队），禁用保持到页面跳转
+- 成功提示条：页面不可见时暂停计时（后台标签页不再白走 5 秒），悬停移出后恢复计时
+- `mark.svg` 引用补 `asp-append-version`（静态资源为一年 immutable 缓存，此前更新 logo 会全站拿到旧图）
+- 浅色主题次要文本对比度 3.2:1 → ≥4.5:1（WCAG AA）
+- `install-worker-service.ps1`：服务停止改为轮询确认后再删除，消除固定 2 秒等待的停删竞态
+
+### 新增
+
+- 统一错误页：未捕获异常与无端点命中的 404 走品牌化错误页（`/error`、`/error/{code}`）；`/api` 路径与机器客户端返回 ProblemDetails JSON
+- 安全响应头兜底：`X-Frame-Options: DENY` + `Content-Security-Policy: frame-ancestors 'none'`（应用端默认输出，反代可再收紧完整 CSP）
+- 前端交互脚本外置为 `wwwroot/js/app.js`（带版本号长缓存），为主题脚本内联保留防 FOUC
+- 禁用触发按钮的禁用原因以可见文字呈现（此前仅 title，屏幕阅读器拿不到）
+- 测试盲区补齐：ExclusiveJobFilter 分支、启动编排各分支、PruneRecurringExcept 真实现（MemoryStorage）、重试退避序列、队列归一化、`/health` 契约、JobExecutor 缺失/非契约类型分支、UpdateAsync
+
+### 变更
+
+- `HangfireJobGateway` 使用原生 `CancellationToken` 注入（替换过时的 `IJobCancellationToken`）
+- `HangfireTaskScheduler` 改为构造注入 `JobStorage`（替换静态 `JobStorage.Current`）
+- 启动序列减少两次全量读取（同步结果直接复用；Resume 接口消掉同一行双查）
+- 散落魔法数字归位：`SessionCookieDays`/`LoginRateLimitPerMinute` 入配置，其余（过期扫描、心跳间隔、退避上限、Dashboard 轮询）提为具名常量
+- 「浏览器请求跳登录」与 Cron 校验的重复实现收敛为公共辅助
+
 ## 3.9.1 - 2026-10-30
 
 ### 修复
