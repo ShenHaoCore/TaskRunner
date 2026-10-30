@@ -187,6 +187,7 @@ document.querySelectorAll("form[data-submit-once]").forEach(function (form) {
                         items.forEach(function (iso) {
                             var time = document.createElement("time");
                             time.setAttribute("datetime", iso);
+                            time.setAttribute("data-local-time", "");
                             preview.appendChild(time);
                         });
                         refreshLocalTimes(preview);
@@ -233,8 +234,11 @@ document.querySelectorAll("form[data-submit-once]").forEach(function (form) {
                         line.appendChild(dot);
                         var time = document.createElement("time");
                         time.setAttribute("datetime", item.occurredAt || "");
-                        time.textContent = item.occurredAt ? "" : "—";
+                        time.setAttribute("data-local-time", "");
                         line.appendChild(time);
+                        if (!item.occurredAt) {
+                            time.textContent = "—";
+                        }
                         if (item.reason) {
                             var reason = document.createElement("span");
                             reason.className = "muted";
