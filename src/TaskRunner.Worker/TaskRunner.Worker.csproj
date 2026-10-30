@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Worker">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>TaskRunner.Worker</RootNamespace>
     <!-- 与 Api 共用，本地连接串等只设一次 -->
     <UserSecretsId>dd52fdfc-c6a8-4102-91fc-791812bb91fe</UserSecretsId>
@@ -18,10 +17,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.22" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="9.0.22" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="9.0.22" />
-    <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
+    <PackageReference Include="Serilog.AspNetCore" />
   </ItemGroup>
 
 </Project>
