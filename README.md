@@ -42,7 +42,7 @@ dotnet run --project src/TaskRunner.Api
 
 ## 新增任务
 
-实现 `IRecurringJob` 并标记 `[RecurringTask]`；可选 `[ExclusiveExecution(秒)]`、`Queue`（默认 `default`）。扩展程序集启动时传给 `AddTaskRunnerCore(..., extraAssemblies)`。重启 Api 后自动注册。
+实现 `IRecurringJob` 并标记 `[RecurringTask]`；可选 `[ExclusiveExecution(秒)]`、`Queue`（默认 `default`）。扩展程序集启动时传给 `AddTaskRunnerCore(..., extraAssemblies)`。重启 Api 后自动注册。平台自带任务集见 `src/TaskRunner.PlatformJobs`（日志清理 log-cleanup、每日运行日报 daily-digest、平台自检 self-check、演示模板 demo-progress 默认禁用），既是开箱可用的运维任务，也是插件任务的参照实现。
 
 ```csharp
 [RecurringTask("0 0 9 * * *", Description = "每日示例", Queue = "critical")]

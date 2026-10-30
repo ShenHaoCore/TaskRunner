@@ -27,6 +27,11 @@
 
 ### 新增
 
+- 平台自带任务集（新插件程序集 `src/TaskRunner.PlatformJobs`，Api/Worker 双侧注入，运行台列表直接可见/可触发）：
+  - **日志清理**（log-cleanup，每天 03:30）：删除超过保留期的滚动日志文件（新配置 `Hangfire:LogRetentionDays`，默认 14 天），带互斥锁
+  - **每日运行日报**（daily-digest，每天 08:00）：累计统计快照 + 最近失败 top5 写入作业详情页与日志；新抽象 `IJobInsights`（Core）+ `HangfireJobInsights`（引擎侧实现，ITaskScheduler 同款模式）
+  - **平台自检**（self-check，每天 06:00）：业务库连通、日志目录可写、心跳组合配置、暂停任务概况；只告警不失败
+  - **演示模板**（demo-progress，每 5 分钟，默认禁用）：20 步进度 + 分阶段输出 + 15% 失败演示重试链路，供接入方抄模板
 - 自定义页面精简与增强（参考 Hangfire.Community.Dashboard.Forms / RecurringJobAdmin 的任务管理 UI 设计）：
   - 首页轻量化：与 Dashboard 同源的统计卡/趋势图/入口卡移除，保留差异化健康信号（Worker 在线、心跳、排队、失败计数）与「最近失败」列表（仅失败，与运行台的全量最近执行差异化）；hero 只留 Dashboard/运行台主入口
   - 运行台行内改 Cron：✎ 展开行内表单，保存前预览未来 5 次执行（新只读端点 `GET /api/tasks/cron-preview`，解析与启停/改 Cron 同一套 Cronos 规则）
