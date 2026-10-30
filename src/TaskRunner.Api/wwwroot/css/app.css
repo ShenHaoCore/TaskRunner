@@ -41,8 +41,9 @@ html[data-theme="light"] {
     --hairline-strong: #d4d5d9;
     --ink: #17181c;
     --ink-muted: #42444b;
-    --ink-subtle: #8a8f98;
-    --ink-tertiary: #a3a6ad;
+    /* 浅色下单独加深（≥4.5:1 WCAG AA）；深色保持不变 */
+    --ink-subtle: #6b7078;
+    --ink-tertiary: #71757e;
     --success-tint: rgba(39, 166, 68, 0.12);
     --danger-tint: rgba(235, 87, 87, 0.1);
     color-scheme: light;
@@ -367,6 +368,9 @@ code {
 
 .table-card { padding: 0; overflow: hidden; }
 
+/* 窄屏横向滚动兜底：Cron 等列在 769-1000px 中间宽度不再被裁切 */
+.table-scroll { overflow-x: auto; }
+
 .table {
     width: 100%;
     border-collapse: collapse;
@@ -392,6 +396,7 @@ code {
 
 .cell-action { text-align: right; }
 .cell-action form { display: inline-flex; margin: 0; }
+.cell-action .btn-reason { display: block; margin-top: 4px; font-size: 11px; }
 
 .badge {
     display: inline-block;

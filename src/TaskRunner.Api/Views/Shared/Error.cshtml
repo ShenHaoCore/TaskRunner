@@ -1,0 +1,16 @@
+@model TaskRunner.Api.Controllers.ErrorController.ErrorViewModel
+@{
+    ViewData["Title"] = $"{Model.Title}（{Model.StatusCode}）— TaskRunner";
+}
+
+<section class="page-head">
+    <p class="eyebrow">出错了</p>
+    <h1>@Model.Title</h1>
+    <p class="subhead">状态码 @Model.StatusCode。可以返回首页重试；若持续出现，请检查服务端日志（logs/）。</p>
+</section>
+
+<div class="actions">
+    <a class="btn btn-primary" href="/">返回首页</a>
+    <a class="btn btn-secondary" href="/run">任务运行台</a>
+    <a class="btn btn-secondary" href="/health">健康检查</a>
+</div>

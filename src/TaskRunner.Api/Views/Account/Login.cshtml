@@ -3,7 +3,7 @@
 <div class="login-wrap">
     <div class="card login-card">
         <div class="login-head">
-            <img class="login-mark" src="~/mark.svg" alt="" />
+            <img class="login-mark" src="~/mark.svg" asp-append-version="true" alt="" />
             <h1>管理员登录</h1>
         </div>
         <p class="login-sub">
@@ -17,12 +17,12 @@
             <div class="field">
                 <label for="username">账号</label>
                 <input class="input" id="username" name="username" value="@(ViewBag.Username as string)"
-                       autocomplete="username" autofocus required />
+                       autocomplete="username" autofocus />
             </div>
             <div class="field">
                 <label for="password">密码</label>
                 <input class="input" id="password" name="password" type="password"
-                       autocomplete="current-password" required />
+                       autocomplete="current-password" />
             </div>
             <button class="btn btn-primary btn-block" type="submit">登录并打开 Dashboard</button>
         </form>

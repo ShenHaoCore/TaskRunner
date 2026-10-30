@@ -14,7 +14,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>@(ViewData["Title"] ?? "TaskRunner")</title>
-    <link rel="icon" href="~/mark.svg" type="image/svg+xml" />
+    <link rel="icon" href="~/mark.svg" asp-append-version="true" type="image/svg+xml" />
     <script>
         // 主题初始化须在样式应用前完成，避免闪烁：保存值 > 系统偏好 > 深色
         (function () {
@@ -28,7 +28,7 @@
 <body>
     <div class="top-nav">
         <div class="container nav-inner">
-            <a class="brand" href="/"><img class="brand-mark" src="~/mark.svg" alt="" />TaskRunner</a>
+            <a class="brand" href="/"><img class="brand-mark" src="~/mark.svg" asp-append-version="true" alt="" />TaskRunner</a>
             <nav class="nav-links" aria-label="主导航">
                 <a href="/" class="@(navActive == "home" ? "active" : null)" aria-current="@(navActive == "home" ? "page" : null)">仪表盘</a>
                 <a href="/run" class="@(navActive == "run" ? "active" : null)" aria-current="@(navActive == "run" ? "page" : null)">运行台</a>
@@ -72,37 +72,7 @@
     </footer>
 
     <script src="~/js/theme.js" asp-append-version="true"></script>
-    <script>
-        // 表单提交后禁用提交按钮 3 秒，防双击重复触发（PRG 重定向回来后恢复）
-        document.querySelectorAll("form[data-submit-once]").forEach(function (form) {
-            form.addEventListener("submit", function () {
-                var button = form.querySelector("button[type=submit]");
-                if (!button || button.disabled) { return; }
-                button.disabled = true;
-                setTimeout(function () { button.disabled = false; }, 3000);
-            });
-        });
-
-        // 服务端输出 UTC ISO 时间，按浏览器时区渲染
-        document.querySelectorAll("[data-local-time]").forEach(function (el) {
-            var raw = el.getAttribute("datetime");
-            if (!raw) { return; }
-            var normalized = /[zZ]$|[+-]\d\d:?\d\d$/.test(raw) ? raw : raw + "Z";
-            el.textContent = new Date(normalized).toLocaleString();
-        });
-
-        // 成功提示 5 秒自动淡出（悬停暂停）；失败提示常驻，由用户下次操作带走
-        (function () {
-            document.querySelectorAll(".flash[data-auto-dismiss='true']").forEach(function (el) {
-                var timer = setTimeout(function () { dismiss(el); }, 5000);
-                el.addEventListener("mouseenter", function () { clearTimeout(timer); });
-            });
-            function dismiss(el) {
-                el.classList.add("flash-leaving");
-                setTimeout(function () { el.remove(); }, 300);
-            }
-        })();
-    </script>
+    <script src="~/js/app.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
