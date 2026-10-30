@@ -8,7 +8,15 @@ public interface ITaskConfigRepository
 {
     Task InitializeAsync(CancellationToken cancellationToken);
 
-    Task SyncDiscoveredAsync(IReadOnlyCollection<RecurringJobDescriptor> jobs, CancellationToken cancellationToken);
+    /// <summary>
+    /// 在会话级 advisory lock 内执行启动编排（迁移 → 同步 → 清理）。Api/Worker 双进程并发首启时
+    /// 整段串行化，避免两侧同时读空表再插入相同 JobId 撞唯一索引导致宿主启动失败。
+    /// SQLite（测试）无 advisory lock，直接执行。
+    /// </summary>
+    Task RunUnderBootstrapLockAsync(Func<Task> body, CancellationToken cancellationToken);
+
+    /// <summary>同步发现到的任务定义，返回同步后的完整配置列表（含新增行，避免调用方重复全量读取）。</summary>
+    Task<IReadOnlyList<TaskConfig>> SyncDiscoveredAsync(IReadOnlyCollection<RecurringJobDescriptor> jobs, CancellationToken cancellationToken);
 
     /// <summary>删除程序集中已不存在的配置行，返回被删除的 JobId。</summary>
     Task<IReadOnlyList<string>> RemoveMissingAsync(IReadOnlyCollection<string> discoveredJobIds, CancellationToken cancellationToken);
@@ -16,6 +24,9 @@ public interface ITaskConfigRepository
     Task<IReadOnlyList<TaskConfig>> ListAsync(CancellationToken cancellationToken);
 
     Task<TaskConfig?> FindAsync(string jobId, CancellationToken cancellationToken);
+
+    /// <summary>基于已加载实体做读-改-写（xmin 冲突自动重载重试），调用方无需再按 JobId 重查一次。</summary>
+    Task<TaskConfig?> UpdateAsync(TaskConfig row, Action<TaskConfig> mutate, CancellationToken cancellationToken);
 
     Task<TaskConfig?> SetEnabledAsync(string jobId, bool enabled, CancellationToken cancellationToken);
 
@@ -29,14 +40,26 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
         // 生产 / 开发：PostgreSQL 走 EF 迁移。测试：SQLite 与迁移模型有提供程序差异，改 EnsureCreated。
+        // 迁移本身由 RunUnderBootstrapLockAsync 的会话级 advisory lock 串行化（Api/Worker 并发首启）。
         if (string.Equals(db.Database.ProviderName, "Microsoft.EntityFrameworkCore.Sqlite", StringComparison.Ordinal))
         {
             await db.Database.EnsureCreatedAsync(cancellationToken);
             return;
         }
 
-        // Api/Worker 双进程（或 Api 多副本）同时首启：迁移以会话级 advisory lock 串行化，
-        // 避免 __EFMigrationsHistory 与 CREATE TABLE 并发冲突。
+        await db.Database.MigrateAsync(cancellationToken);
+    }
+
+    public async Task RunUnderBootstrapLockAsync(Func<Task> body, CancellationToken cancellationToken)
+    {
+        // 测试：SQLite 无 advisory lock，直接执行。
+        if (string.Equals(db.Database.ProviderName, "Microsoft.EntityFrameworkCore.Sqlite", StringComparison.Ordinal))
+        {
+            await body();
+            return;
+        }
+
+        // 会话级锁与后续 EF 查询共用这条显式打开的连接（同一会话），锁期间整个编排串行化。
         await db.Database.OpenConnectionAsync(cancellationToken);
         try
         {
@@ -44,7 +67,7 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
                 $"SELECT pg_advisory_lock({MigrateAdvisoryLockId});", cancellationToken);
             try
             {
-                await db.Database.MigrateAsync(cancellationToken);
+                await body();
             }
             finally
             {
@@ -58,17 +81,18 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
         }
     }
 
-    public async Task SyncDiscoveredAsync(IReadOnlyCollection<RecurringJobDescriptor> jobs, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<TaskConfig>> SyncDiscoveredAsync(IReadOnlyCollection<RecurringJobDescriptor> jobs, CancellationToken cancellationToken)
     {
         var existing = await db.TaskConfigs.ToListAsync(cancellationToken);
         var map = existing.ToDictionary(item => item.JobId, StringComparer.Ordinal);
         var now = DateTime.UtcNow;
+        var added = new List<TaskConfig>();
 
         foreach (var job in jobs)
         {
             if (!map.TryGetValue(job.JobId, out var row))
             {
-                db.TaskConfigs.Add(new TaskConfig
+                var created = new TaskConfig
                 {
                     JobId = job.JobId,
                     JobName = job.JobName,
@@ -79,7 +103,9 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
                     Queue = job.Queue,
                     CreatedAt = now,
                     UpdatedAt = now
-                });
+                };
+                db.TaskConfigs.Add(created);
+                added.Add(created);
                 continue;
             }
 
@@ -122,6 +148,9 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
         }
 
         await db.SaveChangesAsync(cancellationToken);
+
+        // SaveChanges 后主键已生成，直接拼接返回，调用方无需再全量查询一次。
+        return existing.Concat(added).OrderBy(item => item.JobId, StringComparer.Ordinal).ToList();
     }
 
     public async Task<IReadOnlyList<string>> RemoveMissingAsync(
@@ -159,6 +188,24 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
 
     public Task<TaskConfig?> UpdateCronAsync(string jobId, string cron, CancellationToken cancellationToken)
         => UpdateRowAsync(jobId, row => row.CronExpr = cron.Trim(), cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<TaskConfig?> UpdateAsync(TaskConfig row, Action<TaskConfig> mutate, CancellationToken cancellationToken)
+    {
+        mutate(row);
+        row.UpdatedAt = DateTime.UtcNow;
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            return row;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // 与 UpdateRowAsync 同一套重载重试通道：重载最新行后按标准路径重试一次。
+            await db.Entry(row).ReloadAsync(cancellationToken);
+            return await UpdateRowAsync(row.JobId, mutate, cancellationToken);
+        }
+    }
 
     /// <summary>
     /// 读-改-写统一入口：xmin 并发冲突（并发启停/Cron 更新）时重载行并重试一次，

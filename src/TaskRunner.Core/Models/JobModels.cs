@@ -25,6 +25,15 @@ public sealed record JobHistoryItem(
     DateTime? OccurredAt,
     string? Reason);
 
+/// <summary>全站最近一次作业执行（成功/失败），用于首页「最近失败」与运行台场景。</summary>
+public sealed record RecentExecution(
+    string JobId,
+    string? JobName,
+    string State,
+    DateTime? OccurredAt,
+    string? Reason,
+    long? DurationMs);
+
 public sealed record TaskConfigView(
     string JobId,
     string JobName,

@@ -1,23 +1,21 @@
 @model TaskRunner.Api.Controllers.HomeController.HomeViewModel
 
-<section class="page-head">
+<section class="page-head home-hero">
     <p class="eyebrow">任务调度平台 · 基于 Hangfire</p>
-    <h1>定时任务，从这里调度与观察</h1>
+    <h1>定时任务，从这里<span class="text-gradient">调度与观察</span></h1>
     <p class="subhead">
-        Api 负责入队、Dashboard 与运维接口；作业由独立的 Worker 服务执行，
-        状态实时汇总在下方，数据来自 Hangfire 监控接口。
+        队列、重试与实时图表在 Hangfire Dashboard；本页只保留健康信号与入口。
+        登录后可见 Worker、心跳与失败记录。
     </p>
     <div class="actions">
         <a class="btn btn-primary" href="@Model.DashboardPath">打开 Dashboard</a>
         <a class="btn btn-secondary" href="/run">任务运行台</a>
-        <a class="btn btn-secondary" href="/api/tasks">任务列表 API</a>
-        <a class="btn btn-secondary" href="/scalar">API 文档 (Scalar)</a>
     </div>
 </section>
 
-<section class="card" aria-label="运行概览">
+<section class="card" aria-label="系统状态">
     <div class="card-head">
-        <h2>运行概览</h2>
+        <h2>系统状态</h2>
         @if (Model.Authenticated && Model.HeartbeatEnabled)
         {
             <span class="status-badge">
@@ -29,42 +27,59 @@
             </span>
         }
     </div>
-    <div class="metric-grid">
-        <div class="metric"><div class="metric-body">@(Model.Stats?.Succeeded.ToString() ?? "—")</div><div class="metric-desc">成功</div></div>
-        <div class="metric metric-danger"><div class="metric-body">@(Model.Stats?.Failed.ToString() ?? "—")</div><div class="metric-desc">失败</div></div>
-        <div class="metric"><div class="metric-body">@(Model.Stats?.Enqueued.ToString() ?? "—")</div><div class="metric-desc">排队</div></div>
-        <div class="metric"><div class="metric-body">@(Model.Stats?.Processing.ToString() ?? "—")</div><div class="metric-desc">处理中</div></div>
-        <div class="metric"><div class="metric-body">@(Model.Stats?.Recurring.ToString() ?? "—")</div><div class="metric-desc">定时任务</div></div>
-        <div class="metric @(Model.Authenticated ? (Model.WorkerOnline ? "metric-success" : "metric-danger") : "")">
-            <div class="metric-body">@(Model.Stats?.Servers.ToString() ?? "—")</div>
-            <div class="metric-desc">@(Model.Authenticated ? (Model.WorkerOnline ? "Worker 在线" : "无 Worker") : "Worker")</div>
-        </div>
-    </div>
+
     @if (!Model.Authenticated)
     {
-        <p class="hint">统计需要管理员鉴权：<a href="/login">先登录</a>，再刷新本页。</p>
+        <p class="hint">健康状态需要管理员鉴权：<a href="/login">先登录</a>，再刷新本页。</p>
     }
-</section>
+    else
+    {
+        var enqueued = Model.Stats?.Enqueued ?? 0;
+        var failed = Model.Stats?.Failed ?? 0;
 
-<section class="entry-grid" aria-label="能力入口">
-    <a class="card entry" href="@Model.DashboardPath">
-        <span class="entry-arrow">↗</span>
-        <h3>Hangfire Dashboard</h3>
-        <p>实时查看队列、重试与服务器状态，生产环境经管理员鉴权进入。</p>
-    </a>
-    <a class="card entry" href="/run">
-        <span class="entry-arrow">↗</span>
-        <h3>任务运行台</h3>
-        <p>按名称过滤已注册任务，一键立即运行，需管理员会话。</p>
-    </a>
-    <a class="card entry" href="/api/tasks">
-        <span class="entry-arrow">↗</span>
-        <h3>运维 REST</h3>
-        <p><code>/api/tasks</code> 提供清单、统计、启停、触发与 Cron 覆盖，凭 <code>X-TaskRunner-Admin</code> 密钥调用。</p>
-    </a>
-    <a class="card entry" href="/info">
-        <span class="entry-arrow">↗</span>
-        <h3>插件式任务</h3>
-        <p>实现 <code>IRecurringJob</code> 的程序集经 <code>AddTaskRunnerCore</code> 注入，重启即自动注册。</p>
-    </a>
+        <ul class="status-list">
+            <li class="status-row">
+                <span class="state-dot @(Model.WorkerOnline ? "ok" : "bad")" aria-hidden="true"></span>
+                <span class="status-name">Worker</span>
+                <span class="status-value @(Model.WorkerOnline ? "ok" : "bad")">
+                    @(Model.WorkerOnline ? $"在线（{Model.Stats?.Servers}）" : "离线 — 作业将滞留队列")
+                </span>
+            </li>
+            <li class="status-row">
+                <span class="state-dot @(enqueued > 0 ? "neutral" : "ok")" aria-hidden="true"></span>
+                <span class="status-name">排队</span>
+                <span class="status-value">@(enqueued > 0 ? $"{enqueued} 个作业待执行" : "队列空闲")</span>
+            </li>
+            <li class="status-row">
+                <span class="state-dot @(failed > 0 ? "bad" : "ok")" aria-hidden="true"></span>
+                <span class="status-name">失败</span>
+                <span class="status-value @(failed > 0 ? "bad" : "")">@(failed > 0 ? $"{failed} 条失败记录" : "无失败记录")</span>
+            </li>
+        </ul>
+
+        @if (Model.RecentFailures.Count > 0)
+        {
+            <div class="recent-block">
+                <h3 class="recent-title">最近失败</h3>
+                <ul class="recent-list">
+                    @foreach (var item in Model.RecentFailures)
+                    {
+                        <li class="recent-item">
+                            <span class="state-dot bad" aria-hidden="true"></span>
+                            <span class="recent-name">
+                                <strong>@(item.JobName ?? item.JobId)</strong>
+                                <span class="muted mono-sm word-break">@item.JobId</span>
+                            </span>
+                            <time class="recent-meta" data-local-time datetime="@(item.OccurredAt?.ToString("o") ?? "")">@(item.OccurredAt?.ToString("MM-dd HH:mm:ss") ?? "—")</time>
+                        </li>
+                        @if (item.Reason is string reason && reason.Length > 0)
+                        {
+                            <li class="recent-reason muted" title="@reason">@reason</li>
+                        }
+                    }
+                </ul>
+                <p class="hint"><a href="@Model.DashboardPath">在 Dashboard 查看全部失败作业 →</a></p>
+            </div>
+        }
+    }
 </section>

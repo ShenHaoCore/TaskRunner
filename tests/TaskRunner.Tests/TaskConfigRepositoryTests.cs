@@ -83,6 +83,26 @@ public sealed class TaskConfigRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task UpdateAsync_UsesPreloadedRow_AndPersists()
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        var repository = scope.ServiceProvider.GetRequiredService<ITaskConfigRepository>();
+        await repository.InitializeAsync(CancellationToken.None);
+
+        var discovered = new RecurringJobDescriptor("demo-job", "DemoJob", "*/5 * * * * *", "Demo.Job, Demo", typeof(string), "演示任务", true);
+        await repository.SyncDiscoveredAsync([discovered], CancellationToken.None);
+
+        var row = await repository.FindAsync("demo-job", CancellationToken.None);
+        Assert.NotNull(row);
+        var updated = await repository.UpdateAsync(row, r => r.IsEnabled = false, CancellationToken.None);
+
+        Assert.NotNull(updated);
+        Assert.False(updated!.IsEnabled);
+        var stored = await repository.FindAsync("demo-job", CancellationToken.None);
+        Assert.False(stored!.IsEnabled);
+    }
+
+    [Fact]
     public async Task RemoveMissing_DeletesOrphanConfigs()
     {
         await using var scope = _provider.CreateAsyncScope();

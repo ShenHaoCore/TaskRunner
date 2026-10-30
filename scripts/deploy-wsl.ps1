@@ -78,7 +78,6 @@ $cmd = $cmd + "`n# eof"
 # 脚本经 stdin 传给 bash -s：绕开 PS→wsl 的 argv 引号/换行转义坑
 $cmd | wsl -d $Distro -- bash -s
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Output ""
 Write-Output "If install asked for CHANGE_ME, inside WSL run:"

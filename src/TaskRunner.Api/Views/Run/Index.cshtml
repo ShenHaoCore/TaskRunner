@@ -1,54 +1,118 @@
 @model TaskRunner.Api.Controllers.RunController.RunIndexViewModel
+@{
+    var canOperate = !Model.ReadOnly;
+    // 列数随只读模式变化（勾选列仅可操作时渲染），供展开行 colspan 使用
+    var columnCount = canOperate ? 7 : 6;
+}
 
 <section class="page-head">
     <p class="eyebrow">运维</p>
     <h1>任务运行台</h1>
-    <p class="subhead">按名称过滤已注册任务，一键立即运行。需管理员会话；只读模式下触发被禁用。</p>
+    <p class="subhead">任务目录 + 触发 + 行内改 Cron + 批量操作。需管理员会话；只读模式下操作被禁用，作业级排查请用 Dashboard。</p>
 </section>
 
 <form method="get" class="toolbar">
     <input class="input" type="search" name="q" value="@Model.Query" placeholder="过滤 JobId / 显示名…" aria-label="按 JobId 或显示名过滤任务" autocomplete="off" />
+    <select class="input select" name="queue" aria-label="按队列过滤">
+        <option value="">全部队列</option>
+        @foreach (var name in Model.Queues)
+        {
+            <option value="@name" selected="@(name == Model.Queue)">@name</option>
+        }
+    </select>
     <button class="btn btn-secondary" type="submit">过滤</button>
     <a class="btn btn-tertiary" href="/run">重置</a>
 </form>
 
+@if (canOperate)
+{
+    <form id="bulk-form" method="post" asp-action="Bulk" class="bulk-bar" data-submit-once>
+        <span class="muted">已选 <strong id="bulk-count">0</strong> 项</span>
+        <button class="btn btn-secondary btn-sm" type="submit" name="action" value="pause" disabled>暂停</button>
+        <button class="btn btn-secondary btn-sm" type="submit" name="action" value="resume" disabled>恢复</button>
+        <button class="btn btn-primary btn-sm" type="submit" name="action" value="trigger" disabled>触发</button>
+        <span class="muted bulk-hint">勾选任务后操作；恢复前会校验 Cron，暂停任务不可触发。</span>
+    </form>
+}
+
 <div class="card table-card">
-    <table class="table">
-        <thead>
-            <tr>
-                <th>任务</th>
-                <th class="hide-sm">Cron</th>
-                <th>队列</th>
-                <th>状态</th>
-                <th class="hide-sm">最近执行</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var task in Model.Tasks)
-            {
+    <div class="table-scroll">
+        <table class="table">
+            <thead>
                 <tr>
-                    <td>
-                        <strong>@(task.JobName ?? task.JobId)</strong>
-                        <div class="muted mono-sm word-break">@task.JobId</div>
-                    </td>
-                    <td class="hide-sm mono">@task.CronExpr</td>
-                    <td class="muted">@task.Queue</td>
-                    <td>
-                        <span class="badge @(task.IsEnabled ? "badge-success" : "badge-muted")">@(task.IsEnabled ? "启用" : "停用")</span>
-                    </td>
-                    <td class="hide-sm muted"><time data-local-time datetime="@(task.LastExecution?.ToString("o") ?? "")">@(task.LastExecution is null ? "—" : task.LastExecution?.ToString("o"))</time></td>
-                    <td class="cell-action">
-                        <form method="post" asp-controller="Run" asp-action="Trigger" asp-route-jobId="@task.JobId" data-submit-once>
-                            <button class="btn btn-primary btn-sm" type="submit"
-                                    @((Model.ReadOnly || !task.IsEnabled) ? "disabled" : null)
-                                    title="@(Model.ReadOnly ? "只读模式下触发被禁用" : !task.IsEnabled ? "任务已暂停，请先恢复" : null)">立即运行</button>
-                        </form>
-                    </td>
+                    @if (canOperate)
+                    {
+                        <th class="col-check"><input type="checkbox" id="bulk-all" aria-label="全选任务" /></th>
+                    }
+                    <th>任务</th>
+                    <th>Cron</th>
+                    <th>队列</th>
+                    <th>状态</th>
+                    <th class="hide-sm">最近执行</th>
+                    <th></th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var task in Model.Tasks)
+                {
+                    <tr>
+                        @if (canOperate)
+                        {
+                            <td class="col-check"><input type="checkbox" class="bulk-check" value="@task.JobId" aria-label="选择 @task.JobId" /></td>
+                        }
+                        <td>
+                            <strong>@(task.JobName ?? task.JobId)</strong>
+                            <div class="muted mono-sm word-break">@task.JobId</div>
+                        </td>
+                        <td>
+                            <span class="mono cron-text">@task.CronExpr</span>
+                            @if (canOperate)
+                            {
+                                <button type="button" class="btn-icon" data-cron-toggle="@task.JobId" aria-expanded="false" aria-label="编辑 @task.JobId 的 Cron">✎</button>
+                            }
+                        </td>
+                        <td class="muted">@task.Queue</td>
+                        <td>
+                            <span class="badge @(task.IsEnabled ? "badge-success" : "badge-muted")">@(task.IsEnabled ? "启用" : "停用")</span>
+                        </td>
+                        <td class="hide-sm muted"><time data-local-time datetime="@(task.LastExecution?.ToString("o") ?? "")">@(task.LastExecution is null ? "—" : task.LastExecution?.ToString("o"))</time></td>
+                        <td class="cell-action">
+                            <button type="button" class="btn btn-secondary btn-sm" data-detail-toggle="@task.JobId" aria-expanded="false" aria-label="查看 @task.JobId 的最近执行">详情</button>
+                            @{
+                                var disabledReason = Model.ReadOnly ? "只读模式" : !task.IsEnabled ? "已暂停" : null;
+                            }
+                            <form method="post" asp-controller="Run" asp-action="Trigger" asp-route-jobId="@task.JobId" data-submit-once>
+                                <button class="btn btn-primary btn-sm" type="submit" disabled="@(disabledReason is not null)">立即运行</button>
+                            </form>
+                            @* 禁用原因以可见文字呈现：disabled 按钮不可聚焦，仅靠 title 屏幕阅读器拿不到 *@
+                            @if (disabledReason is not null)
+                            {
+                                <span class="muted btn-reason">@disabledReason，禁止触发</span>
+                            }
+                        </td>
+                    </tr>
+                    @if (canOperate)
+                    {
+                        <tr class="cron-row" hidden id="cron-row-@task.JobId">
+                            <td colspan="@columnCount">
+                                <form method="post" asp-controller="Run" asp-action="UpdateCron" asp-route-jobId="@task.JobId" class="cron-editor" data-cron-editor="@task.JobId" data-submit-once>
+                                    <input class="input cron-input" name="cron" value="@task.CronExpr" aria-label="@task.JobId 的 Cron 表达式" autocomplete="off" spellcheck="false" />
+                                    <button class="btn btn-primary btn-sm" type="submit">保存</button>
+                                    <button class="btn btn-tertiary btn-sm" type="button" data-cron-cancel>取消</button>
+                                    <span class="cron-preview muted" aria-live="polite"></span>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    <tr class="detail-row" hidden id="detail-row-@task.JobId">
+                        <td colspan="@columnCount">
+                            <div class="detail-panel muted">点击「详情」加载最近执行…</div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
     @if (Model.Tasks.Count == 0)
     {
         <div class="empty">没有匹配的任务。</div>
