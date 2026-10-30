@@ -29,6 +29,22 @@ public sealed class AuthReadOnlyTests
     }
 
     [Fact]
+    public async Task CronPreview_InProduction_RequiresAdminCredentials()
+    {
+        using var app = NewApp();
+        app.Seed(Seed.Demo());
+
+        // 生产形态下 cron-preview 与其他 /api/tasks 端点同受管理员策略保护（类级 [Authorize]）
+        var anonymous = await app.Client.GetAsync("/api/tasks/cron-preview?expr=%40daily");
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+
+        var authorized = NewClient(app);
+        authorized.DefaultRequestHeaders.Add(AdminAuthDefaults.HeaderName, Key);
+        var ok = await authorized.GetAsync("/api/tasks/cron-preview?expr=%40daily");
+        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+    }
+
+    [Fact]
     public async Task ApiKey_AcceptedViaHeaderCookieSessionAndBasic_Equivalently()
     {
         using var app = NewApp();
