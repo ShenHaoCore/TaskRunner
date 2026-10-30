@@ -27,6 +27,8 @@
 
 ### 新增
 
+- 首页改版（Linear 体系内精修 + 活数据）：hero 光晕背景与渐变强调字、指标卡语义 tint 底色 + 图标 + hover 抬升、入口卡抬升/箭头动效（reduced-motion 全量守卫）；登录后新增「近 24 小时趋势」（Hangfire 按小时聚合，纯 CSS 迷你柱状图，零 JS）与「最近执行」列表（成功/失败混合，含耗时与失败原因）——匿名首页不访问 Hangfire
+- 首页新增「已预约」指标卡（`Stats.Scheduled` 此前未展示）；失败卡仅在 Failed>0 时标红，避免空库满屏警示
 - 统一错误页：未捕获异常与无端点命中的 404 走品牌化错误页（`/error`、`/error/{code}`）；`/api` 路径与机器客户端返回 ProblemDetails JSON
 - 安全响应头兜底：`X-Frame-Options: DENY` + `Content-Security-Policy: frame-ancestors 'none'`（应用端默认输出，反代可再收紧完整 CSP）
 - 前端交互脚本外置为 `wwwroot/js/app.js`（带版本号长缓存），为主题脚本内联保留防 FOUC
