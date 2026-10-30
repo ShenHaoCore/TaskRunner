@@ -44,7 +44,7 @@ public sealed class TasksController(
 
         var views = monitoring.ReadTasks(configs);
         Response.Headers.ETag = etag;
-        Response.Headers["X-Total-Count"] = views.Count.ToString();
+        Response.Headers["X-Total-Count"] = views.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
         if (pageSize > 0)
         {
@@ -206,7 +206,7 @@ public sealed class TasksController(
     }
 
     /// <summary>Cron 非法时返回 400 Problem，否则 null——写入口统一走这里，新增端点不易漏校验。</summary>
-    private ActionResult? InvalidCron(string cron)
+    private ObjectResult? InvalidCron(string cron)
     {
         try
         {
@@ -219,7 +219,7 @@ public sealed class TasksController(
         }
     }
 
-    private ActionResult TaskNotFound(string jobId) =>
+    private ObjectResult TaskNotFound(string jobId) =>
         Problem(
             statusCode: StatusCodes.Status404NotFound,
             title: "任务不存在",

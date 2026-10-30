@@ -14,9 +14,9 @@ public sealed class ExclusiveJobFilter(ILogger<ExclusiveJobFilter>? logger = nul
 {
     private const string LockItemKey = "TaskRunner.ExclusiveLock";
 
-    public void OnPerforming(PerformingContext filterContext)
+    public void OnPerforming(PerformingContext context)
     {
-        var job = filterContext.BackgroundJob.Job;
+        var job = context.BackgroundJob.Job;
         if (job?.Args is null || job.Args.Count < 2)
         {
             return;
@@ -27,13 +27,13 @@ public sealed class ExclusiveJobFilter(ILogger<ExclusiveJobFilter>? logger = nul
             return;
         }
 
-        var distributedLock = filterContext.Connection.AcquireDistributedLock(lockKey, timeout);
-        filterContext.Items[LockItemKey] = distributedLock;
+        var distributedLock = context.Connection.AcquireDistributedLock(lockKey, timeout);
+        context.Items[LockItemKey] = distributedLock;
     }
 
-    public void OnPerformed(PerformedContext filterContext)
+    public void OnPerformed(PerformedContext context)
     {
-        if (filterContext.Items.TryGetValue(LockItemKey, out var value) && value is IDisposable disposable)
+        if (context.Items.TryGetValue(LockItemKey, out var value) && value is IDisposable disposable)
         {
             disposable.Dispose();
         }

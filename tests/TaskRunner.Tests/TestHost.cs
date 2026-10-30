@@ -143,9 +143,9 @@ internal sealed class ContractApp : IDisposable
             .UseMemoryStorage());
 
         // 测试件：SQLite 换掉 Npgsql、fake 调度器换掉 HangfireTaskScheduler
-        builder.Services.RemoveAll(typeof(DbContextOptions<TaskRunnerDbContext>));
+        builder.Services.RemoveAll<DbContextOptions<TaskRunnerDbContext>>();
         builder.Services.RemoveAll<TaskRunnerDbContext>();
-        builder.Services.RemoveAll(typeof(IDbContextOptionsConfiguration<TaskRunnerDbContext>));
+        builder.Services.RemoveAll<IDbContextOptionsConfiguration<TaskRunnerDbContext>>();
         builder.Services.AddDbContext<TaskRunnerDbContext>(options => options.UseSqlite($"Data Source={_dbPath}"));
         Scheduler = new RecordingScheduler();
         builder.Services.AddSingleton<ITaskScheduler>(Scheduler);
