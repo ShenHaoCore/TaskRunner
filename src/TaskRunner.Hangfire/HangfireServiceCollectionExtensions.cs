@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using TaskRunner.Core.Common;
+using TaskRunner.Core.Jobs;
 using TaskRunner.Core.Services;
 
 namespace TaskRunner.Hangfire;
@@ -67,6 +68,7 @@ public static class HangfireServiceCollectionExtensions
         });
 
         services.AddSingleton<ITaskScheduler, HangfireTaskScheduler>();
+        services.AddSingleton<IJobInsights, HangfireJobInsights>();
         services.AddScoped<HangfireJobGateway>();
 
         if (role is HangfireHostRole.Server or HangfireHostRole.Combined)
