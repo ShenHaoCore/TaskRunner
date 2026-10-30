@@ -41,6 +41,9 @@
 
 ### 变更
 
+- 工程化：中央包管理（`Directory.Packages.props` + 仓库级 `NuGet.config` 单源）与锁定还原（`packages.lock.json`，CI 锁定模式 + NuGet 缓存）；TargetFramework 等公共构建属性收进 `Directory.Build.props`；`Microsoft.NET.Test.Sdk` 升级 17.14.1（仅测试工具链）
+- 质量基建：`EnforceCodeStyleInBuild`（.editorconfig 风格规则构建时生效，存量经 dotnet format 清理）+ `AnalysisLevel latest-recommended`（豁免集中在 .editorconfig 注明理由）；架构守卫补强——Core 零 Hangfire、Api 的 Hangfire 触点白名单、中央包管理版本纪律
+- CI：并发取消组、format 校验与依赖漏洞审计（Critical/High 即失败）门禁、Release 创建拆分为前置 job（消除 4 矩阵位竞态）
 - 导航收敛：nav 移除「任务 API」（机器调用走 `X-TaskRunner-Admin` 头，交互文档在 `/scalar`），「仪表盘」更名「总览」消除与 Dashboard 的歧义
 - `HangfireJobGateway` 使用原生 `CancellationToken` 注入（替换过时的 `IJobCancellationToken`）
 - `HangfireTaskScheduler` 改为构造注入 `JobStorage`（替换静态 `JobStorage.Current`）

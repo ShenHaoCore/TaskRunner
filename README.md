@@ -110,3 +110,5 @@ deploy/
 ```
 
 业务任务不进本仓库：实现 `IRecurringJob` 的程序集通过 `AddTaskRunnerCore(..., extraAssemblies)` 以插件方式注入。
+
+工程约定：包版本集中在 `Directory.Packages.props`（中央包管理，csproj 不带版本号），还原以 `packages.lock.json` 锁定（CI `--locked-mode` + 漏洞审计门禁）；分层约束由架构守卫测试钉住（Core 零 Hangfire、Api 的 Hangfire 触点白名单），详见 `tests/TaskRunner.Tests/ArchitectureTests.cs`。
