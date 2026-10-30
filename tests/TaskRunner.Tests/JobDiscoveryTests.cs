@@ -18,7 +18,7 @@ public sealed class CoreBoundaryTests
     [Fact]
     public void CoreProject_DoesNotReferenceHangfirePackages()
     {
-        var corePath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "TaskRunner.Core", "TaskRunner.Core.csproj"));
+        var corePath = Path.Combine(TestPaths.RepoRoot, "src", "TaskRunner.Core", "TaskRunner.Core.csproj");
         Assert.True(File.Exists(corePath), $"找不到 Core 工程：{corePath}");
         var text = File.ReadAllText(corePath);
         Assert.DoesNotContain("Hangfire", text, StringComparison.OrdinalIgnoreCase);
@@ -116,6 +116,21 @@ public sealed class QueueNameGuardTests
     public void Normalize_RejectsInvalidNames(string input)
     {
         Assert.Throws<ArgumentException>(() => QueueNameGuard.Normalize(input));
+    }
+
+    [Fact]
+    public void NormalizeSet_TrimsDedupes_AndFallsBackToDefault()
+    {
+        // 空/缺失项按 Normalize 语义落回 default，与 Worker 订阅装配的行为一致
+        Assert.Equal(["a", "b", "default"], QueueNameGuard.NormalizeSet([" a ", "b", "a", null, ""]));
+        Assert.Equal(["default"], QueueNameGuard.NormalizeSet([]));
+        Assert.Equal(["default"], QueueNameGuard.NormalizeSet(null));
+    }
+
+    [Fact]
+    public void NormalizeSet_RejectsInvalidName()
+    {
+        Assert.Throws<ArgumentException>(() => QueueNameGuard.NormalizeSet(["ok", "BAD"]));
     }
 }
 

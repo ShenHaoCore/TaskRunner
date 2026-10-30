@@ -11,8 +11,8 @@ namespace TaskRunner.Tests;
 /// </summary>
 public sealed class MvcPagesTests
 {
-    private const string Username = "admin";
-    private const string Password = "demo-pass";
+    private static string Username => TestCredentials.Username;
+    private static string Password => TestCredentials.Password;
     private const string TokenField = "__RequestVerificationToken";
 
     [Fact]
@@ -68,9 +68,10 @@ public sealed class MvcPagesTests
     [Fact]
     public async Task Login_Post_WithoutConfiguredPassword_ShowsGuidance()
     {
+        // 故意不配 AdminPassword：生产未配置密码时登录页给出引导文案
         using var app = new ContractApp(
             Environments.Production,
-            ("Hangfire:AdminApiKey", "demo-key"),
+            ("Hangfire:AdminApiKey", TestCredentials.Key),
             ("Hangfire:AdminUsername", Username));
 
         var response = await PostFormAsync(app, "/login", new Dictionary<string, string>
@@ -148,11 +149,7 @@ public sealed class MvcPagesTests
         Assert.Contains("1970", setCookie, StringComparison.Ordinal);
     }
 
-    private static ContractApp NewApp() => new(
-        Environments.Production,
-        ("Hangfire:AdminApiKey", "demo-key"),
-        ("Hangfire:AdminUsername", Username),
-        ("Hangfire:AdminPassword", Password));
+    private static ContractApp NewApp() => ContractApp.NewProductionApp();
 
     /// <summary>表单登录：取防伪令牌 → POST → 回写会话 Cookie。</summary>
     private static async Task<HttpClient> LoginAsync(ContractApp app)
