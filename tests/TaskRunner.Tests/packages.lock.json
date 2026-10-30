@@ -585,7 +585,8 @@
           "Scalar.AspNetCore": "[2.17.6, )",
           "Serilog.AspNetCore": "[9.0.0, )",
           "TaskRunner.Core": "[1.0.0, )",
-          "TaskRunner.Hangfire": "[1.0.0, )"
+          "TaskRunner.Hangfire": "[1.0.0, )",
+          "TaskRunner.PlatformJobs": "[1.0.0, )"
         }
       },
       "taskrunner.core": {
@@ -610,6 +611,12 @@
           "IdentityStream.Hangfire.Console": "[2.0.0, )",
           "Newtonsoft.Json": "[13.0.3, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[9.0.4, )",
+          "TaskRunner.Core": "[1.0.0, )"
+        }
+      },
+      "taskrunner.platformjobs": {
+        "type": "Project",
+        "dependencies": {
           "TaskRunner.Core": "[1.0.0, )"
         }
       },

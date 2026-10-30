@@ -54,6 +54,9 @@ public sealed class TaskRunnerOptions
     /// 0 表示不限制。修改需重启。</summary>
     public int MaxJobRuntimeMinutes { get; set; }
 
+    /// <summary>日志清理任务（log-cleanup）删除多少天前的滚动日志文件；作业启停由运行台控制。默认 14。修改需重启。</summary>
+    public int LogRetentionDays { get; set; } = 14;
+
     public string NormalizeDashboardPath()
     {
         var path = string.IsNullOrWhiteSpace(DashboardPath) ? "/taskrunner" : DashboardPath.Trim();

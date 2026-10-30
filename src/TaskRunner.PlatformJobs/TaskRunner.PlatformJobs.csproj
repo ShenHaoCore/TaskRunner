@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>TaskRunner.PlatformJobs</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 平台自带任务集：只依赖 Core 契约，引擎细节留在装配层（架构守卫钉住） -->
+    <ProjectReference Include="..\TaskRunner.Core\TaskRunner.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="TaskRunner.Tests" />
+  </ItemGroup>
+
+</Project>

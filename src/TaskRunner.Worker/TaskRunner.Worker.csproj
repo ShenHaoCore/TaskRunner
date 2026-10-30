@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\TaskRunner.Core\TaskRunner.Core.csproj" />
     <ProjectReference Include="..\TaskRunner.Hangfire\TaskRunner.Hangfire.csproj" />
+    <ProjectReference Include="..\TaskRunner.PlatformJobs\TaskRunner.PlatformJobs.csproj" />
   </ItemGroup>
 
   <ItemGroup>

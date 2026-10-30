@@ -27,15 +27,27 @@ public sealed class ArchitectureTests
     public void CoreProject_HasZeroHangfireDependency()
     {
         // README 明文承诺「Core 无 Hangfire」——契约层与引擎解耦是本仓库最重要的分层约束
-        var coreDir = Path.Combine(TestPaths.RepoRoot, "src", "TaskRunner.Core");
-        var csproj = File.ReadAllText(Path.Combine(coreDir, "TaskRunner.Core.csproj"));
+        AssertProjectHasZeroHangfire("TaskRunner.Core");
+    }
+
+    [Fact]
+    public void PlatformJobs_HasZeroHangfireDependency()
+    {
+        // 平台自带任务集与业务插件同一纪律：只依赖 Core 契约，引擎细节留在 TaskRunner.Hangfire
+        AssertProjectHasZeroHangfire("TaskRunner.PlatformJobs");
+    }
+
+    private static void AssertProjectHasZeroHangfire(string projectName)
+    {
+        var projectDir = Path.Combine(TestPaths.RepoRoot, "src", projectName);
+        var csproj = File.ReadAllText(Path.Combine(projectDir, $"{projectName}.csproj"));
         Assert.DoesNotContain("Hangfire", csproj, StringComparison.OrdinalIgnoreCase);
 
-        foreach (var source in Directory.EnumerateFiles(coreDir, "*.cs", SearchOption.AllDirectories))
+        foreach (var source in Directory.EnumerateFiles(projectDir, "*.cs", SearchOption.AllDirectories))
         {
             var text = File.ReadAllText(source);
             Assert.True(!text.Contains("using Hangfire", StringComparison.Ordinal),
-                $"Core 源文件不得引用 Hangfire：{Path.GetRelativePath(TestPaths.RepoRoot, source)}");
+                $"{projectName} 源文件不得引用 Hangfire：{Path.GetRelativePath(TestPaths.RepoRoot, source)}");
         }
     }
 

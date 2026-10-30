@@ -8,6 +8,7 @@ using TaskRunner.Core;
 using TaskRunner.Core.Common;
 using TaskRunner.Core.Services;
 using TaskRunner.Hangfire;
+using TaskRunner.PlatformJobs;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddSharedConfiguration(builder.Environment.EnvironmentName);
@@ -27,7 +28,8 @@ builder.Services.AddSystemd();
 // 开发：单进程 Combined（不必再开 Worker）；生产 Api 仅 Client，执行靠 Worker 服务。
 var hangfireRole = builder.Environment.IsDevelopment() ? HangfireHostRole.Combined : HangfireHostRole.Client;
 
-builder.Services.AddTaskRunnerCore(builder.Configuration);
+// 平台自带任务集经插件程序集注入（Api 与 Worker 必须两侧都传：Bootstrapper 按「两侧发现集一致」同步配置）。
+builder.Services.AddTaskRunnerCore(builder.Configuration, typeof(LogCleanupJob).Assembly);
 builder.Services.AddTaskRunnerHangfire(builder.Configuration, hangfireRole);
 builder.Services.AddTaskRunnerAdminAuth();
 builder.Services.AddHostedService<RecurringJobBootstrapper>();

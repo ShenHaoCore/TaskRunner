@@ -454,6 +454,12 @@
           "TaskRunner.Core": "[1.0.0, )"
         }
       },
+      "taskrunner.platformjobs": {
+        "type": "Project",
+        "dependencies": {
+          "TaskRunner.Core": "[1.0.0, )"
+        }
+      },
       "Cronos": {
         "type": "CentralTransitive",
         "requested": "[0.13.0, )",
