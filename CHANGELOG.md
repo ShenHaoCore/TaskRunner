@@ -2,12 +2,17 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## 3.10.0 - 未发布
+## 3.10.0 - 2026-10-31
 
-全面质量轮：后端正确性修复、前端安全与体验、测试补盲（78 → 101 个测试）与代码打磨。
+全面质量轮：后端正确性修复、前端安全与体验、自定义页面精简与增强、工程化与 CI 门禁、平台自带任务集；测试 78 → 127 全绿。
 
 ### 升级到本版本要做什么
 
+- **四个平台自带任务随本版本启用**：日志清理（log-cleanup，每天 03:30 删除 `Hangfire:LogRetentionDays`（默认 14）天前的滚动日志）、每日运行日报（daily-digest，08:00）、平台自检（self-check，06:00）默认启用；演示模板（demo-progress）默认禁用——不想要某任务可在运行台暂停
+- **仓库新增 `NuGet.config`（单一 nuget.org 源）**：本机全局配置的镜像源对本仓库不再生效；网络受限时把该文件里的源换成你的镜像
+- **锁定还原已启用**：`packages.lock.json` 随仓库提交，CI 锁定模式还原——改动依赖需同步提交 lock 文件（本地 `dotnet restore` 自动更新）
+- 应用端默认输出 `X-Frame-Options: DENY` 与 `Content-Security-Policy: frame-ancestors 'none'`：如有系统需要 iframe 嵌入本平台页面，需调整该中间件（Hosting/WebApplicationExtensions）
+- 首页监控图表（指标卡/趋势图）移除，统计详情以 Hangfire Dashboard 为准；首页保留健康信号与最近失败；运行台新增行内改 Cron/批量操作/自动刷新
 - 可选新增配置：`Hangfire:SessionCookieDays`（会话 Cookie 有效期天数，默认 7）、`Hangfire:LoginRateLimitPerMinute`（登录限流，默认 5 次/分钟）——不配置行为与原默认一致
 - `deploy-ubuntu-vm.ps1` 现在会对上传包做 SHA256 对账校验（与 .sh 版对齐；此前 CHANGELOG 3.5.0 的声明在 Windows 链路上未兑现）
 
