@@ -24,8 +24,15 @@ if (-not (Test-Path $appsettings)) {
 
 Write-Output "Stopping existing service if present..."
 sc.exe stop TaskRunner.Worker 2>$null | Out-Null
+
+# 轮询等待服务真正停止（或已不存在）再删除，避免固定 2s 等待下停得慢时 delete 撞车
+$deadline = (Get-Date).AddSeconds(30)
+while ((Get-Date) -lt $deadline) {
+    $state = (sc.exe query TaskRunner.Worker 2>$null | Select-String "STATE") -as [string]
+    if (-not $state -or $state -match "STOPPED") { break }
+    Start-Sleep -Milliseconds 500
+}
 sc.exe delete TaskRunner.Worker 2>$null | Out-Null
-Start-Sleep -Seconds 2
 
 $binPath = '"{0}"' -f $exe
 Write-Output "Creating service TaskRunner.Worker ..."
