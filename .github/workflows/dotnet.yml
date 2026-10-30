@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [main, develop]
 
+# 同一分支/PR 的新推送取消仍在跑的旧构建
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -18,9 +23,15 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '9.0.x'
+          # 依赖 packages.lock.json 做缓存键（Directory.Build.props 已开启锁定还原）
+          cache: true
 
-      - name: Restore
-        run: dotnet restore
+      # 锁定还原：lock 文件与 csproj/中央版本不一致即失败，杜绝「本地悄悄升级依赖」
+      - name: Restore (locked mode)
+        run: dotnet restore --locked-mode
+
+      - name: Verify format
+        run: dotnet format TaskRunner.sln --verify-no-changes
 
       - name: Build
         run: dotnet build -c Release --no-restore
@@ -28,9 +39,46 @@ jobs:
       - name: Test
         run: dotnet test -c Release --no-build --verbosity normal
 
-  publish:
+      # 漏洞审计：出现 Critical/High 级（含传递依赖）即失败
+      - name: Audit vulnerable packages
+        run: |
+          dotnet list package --vulnerable --include-transitive > vulnerable-report.txt || true
+          cat vulnerable-report.txt
+          if grep -qE "^ *(>|>)? *(Critical|High)" vulnerable-report.txt; then
+            echo "::error::存在 Critical/High 级漏洞依赖，请升级补丁版本"
+            exit 1
+          fi
+
+  # Release 创建只做一次（旧实现 4 个矩阵位竞态 create 靠 || true 容错，升级说明挂载也脆弱）
+  release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create release with upgrade notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" --generate-notes
+          # 从 CHANGELOG 提取对应版本的「升级到本版本要做什么」，置于 Release 说明顶部
+          awk -v ver="$version" '
+            $0 ~ ("^## " ver "( |$)") {p=1; next}
+            /^## / && p {exit}
+            p {print}
+          ' CHANGELOG.md > upgrade-notes.md
+          gh release view "$GITHUB_REF_NAME" --json body -q .body > auto-notes.md 2>/dev/null || true
+          { cat upgrade-notes.md; echo; echo "---"; echo; cat auto-notes.md; } > release-body.md
+          gh release edit "$GITHUB_REF_NAME" --notes-file release-body.md
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: release
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -65,23 +113,4 @@ jobs:
       - name: Upload to Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create "${{ github.ref_name }}" --generate-notes || true
-          gh release upload "${{ github.ref_name }}" "publish/${{ matrix.project }}-${{ matrix.rid }}.zip" --clobber
-
-      # 从 CHANGELOG 提取对应版本的「升级到本版本要做什么」，置于 Release 说明顶部
-      # （其后保留 --generate-notes 的自动内容）。仅由 Api/linux-x64 矩阵位执行一次。
-      - name: Attach upgrade notes
-        if: matrix.project == 'TaskRunner.Api' && matrix.rid == 'linux-x64'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          version="${GITHUB_REF_NAME#v}"
-          awk -v ver="$version" '
-            $0 ~ ("^## " ver "( |$)") {p=1; next}
-            /^## / && p {exit}
-            p {print}
-          ' CHANGELOG.md > upgrade-notes.md
-          gh release view "$GITHUB_REF_NAME" --json body -q .body > auto-notes.md 2>/dev/null || true
-          { cat upgrade-notes.md; echo; echo "---"; echo; cat auto-notes.md; } > release-body.md
-          gh release edit "$GITHUB_REF_NAME" --notes-file release-body.md
+        run: gh release upload "${{ github.ref_name }}" "publish/${{ matrix.project }}-${{ matrix.rid }}.zip" --clobber
