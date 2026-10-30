@@ -27,8 +27,12 @@
 
 ### 新增
 
-- 首页改版（Linear 体系内精修 + 活数据）：hero 光晕背景与渐变强调字、指标卡语义 tint 底色 + 图标 + hover 抬升、入口卡抬升/箭头动效（reduced-motion 全量守卫）；登录后新增「近 24 小时趋势」（Hangfire 按小时聚合，纯 CSS 迷你柱状图，零 JS）与「最近执行」列表（成功/失败混合，含耗时与失败原因）——匿名首页不访问 Hangfire
-- 首页新增「已预约」指标卡（`Stats.Scheduled` 此前未展示）；失败卡仅在 Failed>0 时标红，避免空库满屏警示
+- 自定义页面精简与增强（参考 Hangfire.Community.Dashboard.Forms / RecurringJobAdmin 的任务管理 UI 设计）：
+  - 首页轻量化：与 Dashboard 同源的统计卡/趋势图/入口卡移除，保留差异化健康信号（Worker 在线、心跳、排队、失败计数）与「最近失败」列表（仅失败，与运行台的全量最近执行差异化）；hero 只留 Dashboard/运行台主入口
+  - 运行台行内改 Cron：✎ 展开行内表单，保存前预览未来 5 次执行（新只读端点 `GET /api/tasks/cron-preview`，解析与启停/改 Cron 同一套 Cronos 规则）
+  - 任务行「详情」展开最近执行（复用现有 history REST，展示 Succeeded/Failed 结局与原因）
+  - 按队列过滤 + 勾选批量暂停/恢复/触发（恢复前校验 Cron，flash 汇总成败）
+  - 可见性感知自动刷新（30s）：后台标签页暂停、回前台补刷，Cron 编辑或详情展开时自动让路
 - 统一错误页：未捕获异常与无端点命中的 404 走品牌化错误页（`/error`、`/error/{code}`）；`/api` 路径与机器客户端返回 ProblemDetails JSON
 - 安全响应头兜底：`X-Frame-Options: DENY` + `Content-Security-Policy: frame-ancestors 'none'`（应用端默认输出，反代可再收紧完整 CSP）
 - 前端交互脚本外置为 `wwwroot/js/app.js`（带版本号长缓存），为主题脚本内联保留防 FOUC
@@ -37,6 +41,7 @@
 
 ### 变更
 
+- 导航收敛：nav 移除「任务 API」（机器调用走 `X-TaskRunner-Admin` 头，交互文档在 `/scalar`），「仪表盘」更名「总览」消除与 Dashboard 的歧义
 - `HangfireJobGateway` 使用原生 `CancellationToken` 注入（替换过时的 `IJobCancellationToken`）
 - `HangfireTaskScheduler` 改为构造注入 `JobStorage`（替换静态 `JobStorage.Current`）
 - 启动序列减少两次全量读取（同步结果直接复用；Resume 接口消掉同一行双查）
