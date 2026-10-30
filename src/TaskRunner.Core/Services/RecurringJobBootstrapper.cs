@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TaskRunner.Core.Common;
+using TaskRunner.Core.Models;
 
 namespace TaskRunner.Core.Services;
 
@@ -35,22 +36,29 @@ public sealed class RecurringJobBootstrapper(
         await using var scope = scopeFactory.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<ITaskConfigRepository>();
 
-        // IHostedLifecycleService.StartingAsync 早于所有 IHostedService.StartAsync，
-        // 因此迁移必须在这里先跑完，再同步配置。
-        await repository.InitializeAsync(cancellationToken);
-        logger.LogInformation("业务库迁移已应用（TaskConfigs）。");
+        // IHostedLifecycleService.StartingAsync 早于所有 IHostedService.StartAsync。
+        // 迁移 → 同步 → 清理整体置于会话级 advisory lock：Api/Worker 并发首启时避免
+        // 两侧同时读空表再插入相同 JobId 撞唯一索引，令宿主启动失败。
+        IReadOnlyList<string> removedConfigs = [];
+        IReadOnlyList<TaskConfig> configs = [];
+        await repository.RunUnderBootstrapLockAsync(async () =>
+        {
+            await repository.InitializeAsync(cancellationToken);
+            logger.LogInformation("业务库迁移已应用（TaskConfigs）。");
 
-        await repository.SyncDiscoveredAsync(catalog.RecurringJobs, cancellationToken);
+            configs = await repository.SyncDiscoveredAsync(catalog.RecurringJobs, cancellationToken);
 
-        var discoveredIds = catalog.RecurringJobs.Select(job => job.JobId).ToList();
-        var removedConfigs = await repository.RemoveMissingAsync(discoveredIds, cancellationToken);
+            var discoveredIds = catalog.RecurringJobs.Select(job => job.JobId).ToList();
+            removedConfigs = await repository.RemoveMissingAsync(discoveredIds, cancellationToken);
+        }, cancellationToken);
+
         foreach (var jobId in removedConfigs)
         {
             logger.LogInformation("已从 TaskConfigs 清理废弃任务 {JobId}。", jobId);
         }
 
         // Hangfire 里可能仍残留已删任务的 recurring（库表已清也不会自动消失）。
-        var pruned = scheduler.PruneRecurringExcept(discoveredIds);
+        var pruned = scheduler.PruneRecurringExcept(catalog.RecurringJobs.Select(job => job.JobId).ToList());
         foreach (var jobId in pruned)
         {
             logger.LogInformation("已从 Hangfire 清理残留 recurring {JobId}。", jobId);
@@ -59,9 +67,7 @@ public sealed class RecurringJobBootstrapper(
         ValidateQueuesCovered();
         WarnHeartbeatCombo();
 
-        var configs = await repository.ListAsync(cancellationToken);
-        var discovered = discoveredIds.ToHashSet(StringComparer.Ordinal);
-
+        var discovered = catalog.RecurringJobs.Select(job => job.JobId).ToHashSet(StringComparer.Ordinal);
         foreach (var config in configs)
         {
             if (!discovered.Contains(config.JobId))
@@ -89,10 +95,11 @@ public sealed class RecurringJobBootstrapper(
         }
     }
 
-    /// <summary>契约声明的队列必须被 Worker 订阅，否则作业将永远滞留 Enqueued（静默丢单）。</summary>
+    /// <summary>契约声明的队列必须被 Worker 订阅，否则作业将永远滞留 Enqueued（静默丢单）。
+    /// 两侧统一经 NormalizeSet 归一化，配置里的空白/大小写差异不产生假告警。</summary>
     private void ValidateQueuesCovered()
     {
-        var subscribed = options.Value.Queues.ToHashSet(StringComparer.Ordinal);
+        var subscribed = QueueNameGuard.NormalizeSet(options.Value.Queues).ToHashSet(StringComparer.Ordinal);
         var uncovered = catalog.RecurringJobs
             .Select(job => QueueNameGuard.Normalize(job.Queue))
             .Distinct(StringComparer.Ordinal)

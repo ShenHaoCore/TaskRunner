@@ -34,10 +34,8 @@ public sealed class JobExecutor(IServiceProvider services, ILogger<JobExecutor> 
             logger.LogWarning("任务 {JobId} 已取消。", jobId);
             throw;
         }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "任务 {JobId} 执行失败。", jobId);
-            throw;
-        }
+
+        // 失败不再在此记 Error：Gateway 层已带耗时与 Console 输出记录同一异常，
+        // Hangfire 亦会记录——双重 Error 日志干扰排查，这里仅负责抛出。
     }
 }

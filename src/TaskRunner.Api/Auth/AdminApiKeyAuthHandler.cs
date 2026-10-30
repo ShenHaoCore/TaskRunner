@@ -31,10 +31,9 @@ public sealed class AdminApiKeyAuthHandler(
     /// </summary>
     protected override Task HandleChallengeAsync(AuthenticationProperties properties)
     {
-        if (Request.Headers.Accept.ToString().Contains("text/html", StringComparison.OrdinalIgnoreCase))
+        if (BrowserRedirect.IsBrowserRequest(Request))
         {
-            var returnUrl = Request.Path + Request.QueryString;
-            Response.Redirect($"/login?returnUrl={Uri.EscapeDataString(returnUrl)}");
+            BrowserRedirect.RedirectToLogin(Response, Request);
             return Task.CompletedTask;
         }
 
@@ -84,7 +83,6 @@ public static class AdminAuthServiceCollectionExtensions
                 options.Cookie.SameSite = SameSiteMode.Lax;
                 options.Cookie.Path = "/";
                 options.SlidingExpiration = true;
-                options.ExpireTimeSpan = TimeSpan.FromDays(7);
                 options.Events = new CookieAuthenticationEvents
                 {
                     OnRedirectToLogin = context =>
@@ -107,6 +105,7 @@ public static class AdminAuthServiceCollectionExtensions
                 options.Cookie.SecurePolicy = hangfire.Value.CookieSecure
                     ? CookieSecurePolicy.Always
                     : CookieSecurePolicy.SameAsRequest;
+                options.ExpireTimeSpan = TimeSpan.FromDays(Math.Max(1, hangfire.Value.SessionCookieDays));
             });
 
         services.AddAuthorization(options =>
@@ -130,11 +129,13 @@ public static class AdminAuthServiceCollectionExtensions
                     return RateLimitPartition.GetNoLimiter("admin-login-dev");
                 }
 
+                var permitLimit = Math.Max(1, context.RequestServices
+                    .GetRequiredService<IOptions<TaskRunnerOptions>>().Value.LoginRateLimitPerMinute);
                 return RateLimitPartition.GetFixedWindowLimiter(
                     context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     _ => new FixedWindowRateLimiterOptions
                     {
-                        PermitLimit = 5,
+                        PermitLimit = permitLimit,
                         Window = TimeSpan.FromMinutes(1)
                     });
             });

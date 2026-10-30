@@ -226,6 +226,42 @@ public sealed class RestContractTests
     }
 
     [Fact]
+    public async Task CronPreview_ReturnsFiveFutureOccurrences_ForSupportedFormats()
+    {
+        using var app = new ContractApp();
+
+        // 6 位（含秒）/ 5 位（分钟级）/ @宏 三种受支持形态
+        foreach (var expr in new[] { "*/10 * * * * *", "*/30 * * * *", "@daily" })
+        {
+            var body = await app.GetJsonAsync($"/api/tasks/cron-preview?expr={Uri.EscapeDataString(expr)}");
+            Assert.Equal(JsonValueKind.Array, body.GetProperty("occurrences").ValueKind);
+            Assert.Equal(5, body.GetProperty("occurrences").GetArrayLength());
+        }
+
+        // 逐次递增：下一次总在上一次之后
+        var occurrences = (await app.GetJsonAsync("/api/tasks/cron-preview?expr=%2A%2F10%20%2A%20%2A%20%2A%20%2A%20%2A"))
+            .GetProperty("occurrences").EnumerateArray()
+            .Select(item => item.GetDateTime())
+            .ToList();
+        Assert.Equal(5, occurrences.Count);
+        Assert.Equal(occurrences.OrderBy(t => t), occurrences);
+    }
+
+    [Fact]
+    public async Task CronPreview_RejectsInvalidExpression_With400Problem()
+    {
+        using var app = new ContractApp();
+
+        foreach (var expr in new[] { "* * * *", "not a cron", "" })
+        {
+            var response = await app.Client.GetAsync($"/api/tasks/cron-preview?expr={Uri.EscapeDataString(expr)}");
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.Contains("Cron", body, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public async Task UnknownJobId_MapsTo404_WithMessage()
     {
         using var app = new ContractApp();

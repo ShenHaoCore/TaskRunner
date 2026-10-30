@@ -43,7 +43,12 @@ csharp_style_expression_bodied_methods = false:silent
 csharp_prefer_braces = true:warning
 csharp_style_namespace_declarations = file_scoped:warning
 csharp_style_prefer_switch_expression = true:warning
+# LoggerMessage 源生成不强制：监控读侧与过滤器多为低频路径，结构化日志模板已统一（团队约定）
 dotnet_diagnostic.CA1848.severity = none
+
+# EF 迁移类名遵循「{时间戳}_{变更名}」约定（以 Queue/Table 等结尾属正常变更描述），不适用 CA1711
+[src/TaskRunner.Core/Persistence/Migrations/**.cs]
+dotnet_diagnostic.CA1711.severity = none
 
 [tests/**.cs]
 dotnet_diagnostic.CA1707.severity = none

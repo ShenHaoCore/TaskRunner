@@ -16,8 +16,11 @@ namespace TaskRunner.Api.Hosting;
 
 public static class WebApplicationExtensions
 {
+    /// <summary>Hangfire Dashboard 页面内自动刷新统计的间隔（毫秒）。</summary>
+    internal const int DashboardStatsPollingIntervalMs = 2000;
+
     /// <summary>
-    /// 装配中间件管道与端点：请求日志、API 文档、鉴权守卫、Hangfire Dashboard 与业务 API。
+    /// 装配中间件管道与端点：请求日志、错误页、API 文档、鉴权守卫、Hangfire Dashboard 与业务 API。
     /// </summary>
     public static WebApplication UseTaskRunnerPipeline(this WebApplication app, HangfireHostRole hangfireRole)
     {
@@ -50,6 +53,11 @@ public static class WebApplicationExtensions
             };
         });
 
+        // 未捕获异常 → /error 重执行；无端点命中的 4xx（如 404）→ /error/{code}。
+        // ErrorController 按 /api 前缀返回 ProblemDetails JSON，页面请求渲染品牌化错误页。
+        app.UseExceptionHandler("/error");
+        app.UseStatusCodePagesWithReExecute("/error/{0}");
+
         // 反代（nginx 同机）下取真实客户端 IP：登录限流按真实 IP 分桶，日志与 Secure Cookie 也依赖它。
         // KnownProxies 仅放行本机回环，直连部署时外来 Forwarded 头一律不信任。
         var forwarded = new ForwardedHeadersOptions
@@ -61,11 +69,13 @@ public static class WebApplicationExtensions
         forwarded.KnownProxies.Add(IPAddress.IPv6Loopback);
         app.UseForwardedHeaders(forwarded);
 
-        // 基础安全响应头（CSP/X-Frame 之外的通用项；CSP 由反代按部署文档配置）
+        // 基础安全响应头：应用端兜底（防点击劫持），反代可按部署文档再收紧完整 CSP。
         app.Use((context, next) =>
         {
             context.Response.Headers.XContentTypeOptions = "nosniff";
             context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+            context.Response.Headers.XFrameOptions = "DENY";
+            context.Response.Headers["Content-Security-Policy"] = "frame-ancestors 'none'";
             return next();
         });
 
@@ -101,11 +111,9 @@ public static class WebApplicationExtensions
                 if (path.StartsWithSegments(dashboardPath, StringComparison.OrdinalIgnoreCase)
                     && context.User.Identity?.IsAuthenticated != true
                     && !AdminCredentials.TryMatchRequest(context.Request, hangfireOptions.AdminApiKey)
-                    && context.Request.Headers.Accept.ToString()
-                        .Contains("text/html", StringComparison.OrdinalIgnoreCase))
+                    && BrowserRedirect.IsBrowserRequest(context.Request))
                 {
-                    var returnUrl = context.Request.Path + context.Request.QueryString;
-                    context.Response.Redirect($"/login?returnUrl={Uri.EscapeDataString(returnUrl)}");
+                    BrowserRedirect.RedirectToLogin(context.Response, context.Request);
                     return Task.CompletedTask;
                 }
 
@@ -119,7 +127,7 @@ public static class WebApplicationExtensions
             DisplayStorageConnectionString = false,
             Authorization = [new AdminDashboardAuthorizationFilter()],
             IsReadOnlyFunc = _ => hangfireOptions.ReadOnlyMode,
-            StatsPollingInterval = 2000
+            StatsPollingInterval = DashboardStatsPollingIntervalMs
         });
 
         app.MapControllers();

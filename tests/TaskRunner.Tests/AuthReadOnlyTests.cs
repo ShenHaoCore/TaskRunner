@@ -15,9 +15,9 @@ namespace TaskRunner.Tests;
 /// </summary>
 public sealed class AuthReadOnlyTests
 {
-    private const string Key = "demo-key";
-    private const string Username = "admin";
-    private const string Password = "demo-pass";
+    private static string Key => TestCredentials.Key;
+    private static string Username => TestCredentials.Username;
+    private static string Password => TestCredentials.Password;
 
     [Fact]
     public async Task Requests_WithoutCredentials_AreRejected()
@@ -156,15 +156,8 @@ public sealed class AuthReadOnlyTests
     }
 
     private static ContractApp NewApp(bool readOnly = false) => readOnly
-        ? new ContractApp(Environments.Production,
-            ("Hangfire:AdminApiKey", Key),
-            ("Hangfire:AdminUsername", Username),
-            ("Hangfire:AdminPassword", Password),
-            ("Hangfire:ReadOnlyMode", "true"))
-        : new ContractApp(Environments.Production,
-            ("Hangfire:AdminApiKey", Key),
-            ("Hangfire:AdminUsername", Username),
-            ("Hangfire:AdminPassword", Password));
+        ? ContractApp.NewProductionApp(("Hangfire:ReadOnlyMode", "true"))
+        : ContractApp.NewProductionApp();
 
     private static HttpClient NewClient(ContractApp app) => app.CreateClient();
 

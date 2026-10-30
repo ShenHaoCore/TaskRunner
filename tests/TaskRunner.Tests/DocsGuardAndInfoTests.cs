@@ -18,14 +18,14 @@ namespace TaskRunner.Tests;
 /// </summary>
 public sealed class DocsGuardAndInfoTests
 {
-    private const string Key = "demo-key";
+    private static string Key => TestCredentials.Key;
 
     // ── 文档守卫 ─────────────────────────────────────────────
 
     [Fact]
     public async Task Scalar_WithoutCredential_InProduction_Is401WithBasicChallenge()
     {
-        using var app = NewProductionApp();
+        using var app = ContractApp.NewProductionApp();
 
         var response = await app.Client.GetAsync("/scalar");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -35,7 +35,7 @@ public sealed class DocsGuardAndInfoTests
     [Fact]
     public async Task OpenApi_WithoutCredential_InProduction_Is401()
     {
-        using var app = NewProductionApp();
+        using var app = ContractApp.NewProductionApp();
 
         var response = await app.Client.GetAsync("/openapi/v1.json");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -44,7 +44,7 @@ public sealed class DocsGuardAndInfoTests
     [Fact]
     public async Task OpenApi_WithAdminKey_InProduction_Returns200()
     {
-        using var app = NewProductionApp();
+        using var app = ContractApp.NewProductionApp();
         var client = app.CreateClient();
         client.DefaultRequestHeaders.Add(AdminAuthDefaults.HeaderName, Key);
 
@@ -55,7 +55,7 @@ public sealed class DocsGuardAndInfoTests
     [Fact]
     public async Task Scalar_WithAdminKey_InProduction_IsAccessible()
     {
-        using var app = NewProductionApp();
+        using var app = ContractApp.NewProductionApp();
         var client = app.CreateClient();
         client.DefaultRequestHeaders.Add(AdminAuthDefaults.HeaderName, Key);
 
@@ -78,7 +78,7 @@ public sealed class DocsGuardAndInfoTests
     [Fact]
     public async Task Info_InProduction_ShowsEnvironmentAndHeartbeat()
     {
-        using var app = NewProductionApp();
+        using var app = ContractApp.NewProductionApp();
 
         // 匿名只保留最小暴露；完整信息（environment/heartbeat 等）需管理员凭据
         var anonymous = await app.Client.GetAsync("/info");
@@ -116,7 +116,7 @@ public sealed class DocsGuardAndInfoTests
     [Fact]
     public async Task Login_InProduction_IsRateLimited_AfterFiveAttemptsPerMinute()
     {
-        using var app = NewProductionApp();
+        using var app = ContractApp.NewProductionApp();
 
         HttpStatusCode? limited = null;
         for (var attempt = 1; attempt <= 6; attempt++)
@@ -214,6 +214,4 @@ public sealed class DocsGuardAndInfoTests
         return services.BuildServiceProvider();
     }
 
-    private static ContractApp NewProductionApp() =>
-        new(Environments.Production, ("Hangfire:AdminApiKey", Key));
 }

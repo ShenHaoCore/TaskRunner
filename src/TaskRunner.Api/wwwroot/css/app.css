@@ -19,6 +19,7 @@
     --primary-hover: #828fff;
     --primary-focus: #5e69d1;
     --focus-ring: rgba(94, 105, 209, 0.5);
+    --primary-glow: rgba(94, 105, 209, 0.14);
     --success: #27a644;
     --success-tint: rgba(39, 166, 68, 0.14);
     --danger: #eb5757;
@@ -41,8 +42,10 @@ html[data-theme="light"] {
     --hairline-strong: #d4d5d9;
     --ink: #17181c;
     --ink-muted: #42444b;
-    --ink-subtle: #8a8f98;
-    --ink-tertiary: #a3a6ad;
+    /* 浅色下单独加深（≥4.5:1 WCAG AA）；深色保持不变 */
+    --ink-subtle: #6b7078;
+    --ink-tertiary: #71757e;
+    --primary-glow: rgba(94, 105, 209, 0.10);
     --success-tint: rgba(39, 166, 68, 0.12);
     --danger-tint: rgba(235, 87, 87, 0.1);
     color-scheme: light;
@@ -240,11 +243,37 @@ code {
     letter-spacing: -0.4px;
 }
 
-/* ── 页头（eyebrow + display + subhead） ───────────────────── */
+/* ── 页头（eyebrow + display + subhead；首页 hero 带光晕与渐变强调字） ── */
 
 .page { flex: 1; padding: 48px 0 64px; }
 
 .page-head { margin-bottom: 28px; }
+
+/* 首页 hero：左上一团 primary 光晕制造背景层次（仅首页，Run 页不带 home-hero） */
+.home-hero { position: relative; }
+
+.home-hero::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: -140px;
+    left: -180px;
+    width: 640px;
+    height: 400px;
+    background: radial-gradient(closest-side, var(--primary-glow), transparent);
+    pointer-events: none;
+}
+
+.home-hero .eyebrow::before {
+    content: "";
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-right: 8px;
+    border-radius: 50%;
+    background: var(--primary);
+    vertical-align: middle;
+}
 
 .eyebrow {
     margin: 0 0 12px;
@@ -263,6 +292,14 @@ code {
     color: var(--ink);
 }
 
+/* h1 关键词渐变强调：primary token 深浅主题共用，无需覆写 */
+.text-gradient {
+    background: linear-gradient(92deg, var(--primary), var(--primary-hover));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
 .subhead {
     margin: 0;
     max-width: 40em;
@@ -278,39 +315,103 @@ code {
     margin-top: 24px;
 }
 
-/* ── 度量格（surface 阶梯 + 数字 26/600；仅 danger/success 语义色） ── */
+/* ── 首页系统状态（健康信号行 + 最近失败差异化列表） ────────── */
 
-.metric-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+.status-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.status-row {
+    display: flex;
+    align-items: center;
     gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--hairline);
 }
 
-.metric {
-    background: var(--canvas);
-    border: 1px solid var(--hairline);
-    border-radius: var(--radius-md);
-    padding: 14px 16px;
+.status-row:last-child { border-bottom: none; }
+
+.status-name {
+    width: 64px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-muted);
 }
 
-.metric-body {
-    font-size: 26px;
-    font-weight: 600;
-    letter-spacing: -0.5px;
+.status-value {
+    font-size: 14px;
     color: var(--ink);
+    font-variant-numeric: tabular-nums;
 }
 
-.metric-desc {
-    margin-top: 2px;
+.status-value.ok { color: var(--success); }
+.status-value.bad { color: var(--danger); }
+
+.recent-block { margin-top: 16px; }
+
+.recent-title {
+    margin: 0 0 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-muted);
+}
+
+.recent-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.recent-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 4px 12px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--hairline);
+}
+
+.recent-item:last-child { border-bottom: none; }
+
+.recent-list .recent-reason {
+    display: block;
     font-size: 12px;
-    color: var(--ink-subtle);
+    margin: -4px 0 6px 21px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.metric-danger { border-color: var(--danger); }
-.metric-danger .metric-body { color: var(--danger); }
+.state-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+}
 
-.metric-success { border-color: var(--success); }
-.metric-success .metric-body { color: var(--success); }
+.state-dot.ok { background: var(--success); }
+.state-dot.bad { background: var(--danger); }
+.state-dot.neutral { background: var(--ink-tertiary); }
+
+.recent-name {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.recent-name strong { font-weight: 500; }
+
+.recent-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--ink-subtle);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
 
 .hint {
     margin: 16px 0 0;
@@ -320,52 +421,95 @@ code {
 
 .hint a { color: var(--primary); }
 
-/* ── 入口卡（feature-card：surface-1、radius 12、24px padding） ── */
+/* ── 运行台（工具条队列过滤、批量条、行内 Cron 编辑、详情展开） ── */
 
-.entry-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 16px;
-    margin-top: 24px;
+.input.select { width: auto; padding-right: 28px; }
+
+.bulk-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 12px;
+    font-size: 13px;
 }
 
-.entry {
-    position: relative;
-    display: block;
-    color: var(--ink);
-    transition: border-color 0.15s ease, background 0.15s ease;
+.bulk-hint { font-size: 12px; }
+
+.col-check { width: 36px; }
+
+.btn-icon {
+    border: none;
+    background: transparent;
+    color: var(--ink-subtle);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    transition: color 0.15s ease, background 0.15s ease;
 }
 
-.entry:hover {
-    color: var(--ink);
-    background: var(--surface-2);
-    border-color: var(--hairline-strong);
+.btn-icon:hover { color: var(--primary); background: var(--surface-2); }
+
+.cron-text { word-break: break-all; }
+
+.cron-editor {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 4px 0;
 }
 
-.entry h3 {
-    margin: 0 0 6px;
-    font-size: 16px;
-    font-weight: 600;
-    letter-spacing: -0.2px;
+.cron-input { width: min(320px, 100%); font-family: var(--mono); }
+
+.cron-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 12px;
+    min-width: 0;
 }
 
-.entry p {
-    margin: 0;
-    font-size: 14px;
+.cron-preview time {
     color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
 }
 
-.entry-arrow {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    color: var(--ink-tertiary);
-    font-size: 14px;
+.detail-row > td { padding-top: 0; }
+
+.detail-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 0 12px;
+    font-size: 13px;
+}
+
+.detail-line {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.detail-line time {
+    color: var(--ink-subtle);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.detail-line .muted {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* ── 表格（行发丝线、hover surface-2、表头 caption） ─────────── */
 
 .table-card { padding: 0; overflow: hidden; }
+
+/* 窄屏横向滚动兜底：Cron 等列在 769-1000px 中间宽度不再被裁切 */
+.table-scroll { overflow-x: auto; }
 
 .table {
     width: 100%;
@@ -392,6 +536,7 @@ code {
 
 .cell-action { text-align: right; }
 .cell-action form { display: inline-flex; margin: 0; }
+.cell-action .btn-reason { display: block; margin-top: 4px; font-size: 11px; }
 
 .badge {
     display: inline-block;
@@ -477,6 +622,7 @@ code {
 @media (prefers-reduced-motion: reduce) {
     .flash { transition: none; }
     .flash-leaving { transform: none; }
+    .btn-icon { transition: none; }
 }
 
 .flash-success { border-color: var(--success); background: var(--success-tint); color: var(--ink); }

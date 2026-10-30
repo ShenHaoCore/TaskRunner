@@ -1,0 +1,47 @@
+<Project>
+  <!-- 中央包管理：版本只在此声明，各 csproj 的 PackageReference 不带 Version（守卫测试钉住该纪律） -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 引擎 -->
+    <PackageVersion Include="Cronos" Version="0.13.0" />
+    <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.25" />
+    <PackageVersion Include="Hangfire.PostgreSql" Version="1.21.1" />
+    <PackageVersion Include="IdentityStream.Hangfire.Console" Version="2.0.0" />
+    <!-- Hangfire.Core 的传递依赖解析到 11.0.1（GHSA-5crp-9r3c-p9vr，High）；顶层提升到安全基线 13.0.3 -->
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+
+    <!-- 数据访问（EF / Npgsql 同大版本对齐） -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.22" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.22" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.22" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.22" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+
+    <!-- 扩展族（9.0.x 对齐） -->
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.22" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="9.0.22" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.22" />
+    <PackageVersion Include="Microsoft.Extensions.FileProviders.Physical" Version="9.0.22" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.22" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.22" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Systemd" Version="9.0.22" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="9.0.22" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="9.0.22" />
+    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.22" />
+
+    <!-- 文档 / 日志 -->
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.17.6" />
+    <PackageVersion Include="Serilog.AspNetCore" Version="9.0.0" />
+
+    <!-- 测试工具链 -->
+    <PackageVersion Include="coverlet.collector" Version="10.1.0" />
+    <PackageVersion Include="Hangfire.MemoryStorage" Version="1.8.1.2" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.22" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+</Project>

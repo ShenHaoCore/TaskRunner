@@ -1,10 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>TaskRunner.Hangfire</RootNamespace>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,14 +9,20 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="TaskRunner.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\TaskRunner.Core\TaskRunner.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Hangfire.AspNetCore" Version="1.8.25" />
-    <PackageReference Include="Hangfire.PostgreSql" Version="1.21.1" />
-    <PackageReference Include="IdentityStream.Hangfire.Console" Version="2.0.0" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+    <PackageReference Include="Hangfire.AspNetCore" />
+    <PackageReference Include="Hangfire.PostgreSql" />
+    <PackageReference Include="IdentityStream.Hangfire.Console" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <!-- 安全提升：压过 Hangfire.Core 传递解析的 Newtonsoft.Json 11.0.1（High 漏洞） -->
+    <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
 
 </Project>

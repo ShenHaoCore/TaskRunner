@@ -19,12 +19,16 @@ public sealed class HomeController(
     {
         ViewData["Title"] = "TaskRunner — 任务调度平台";
         ViewData["NavActive"] = "home";
+        ViewData["AutoRefresh"] = "30";
 
         var authenticated = User.Identity?.IsAuthenticated == true;
         var stats = authenticated ? monitoring.ReadStatistics() : null;
         var heartbeat = authenticated && options.Value.HeartbeatEnabled
             ? monitoring.ReadHeartbeat()
             : null;
+        var recentFailures = authenticated
+            ? monitoring.ReadRecentExecutions(limit: 5, failuresOnly: true)
+            : [];
 
         return View(new HomeViewModel(
             Authenticated: authenticated,
@@ -35,7 +39,8 @@ public sealed class HomeController(
             Stats: stats,
             WorkerOnline: (stats?.Servers ?? 0) > 0,
             HeartbeatLast: heartbeat?.LastExecution,
-            HeartbeatNext: heartbeat?.NextExecution));
+            HeartbeatNext: heartbeat?.NextExecution,
+            RecentFailures: recentFailures));
     }
 
     public sealed record HomeViewModel(
@@ -47,5 +52,6 @@ public sealed class HomeController(
         JobStatistics? Stats,
         bool WorkerOnline,
         DateTime? HeartbeatLast,
-        DateTime? HeartbeatNext);
+        DateTime? HeartbeatNext,
+        IReadOnlyList<RecentExecution> RecentFailures);
 }

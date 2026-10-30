@@ -6,10 +6,7 @@ public sealed class RunConsoleSmokeTests
     [Fact]
     public void RunView_ExistsWithConsoleCopy()
     {
-        var root = Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-            "src", "TaskRunner.Api"));
-        var view = Path.Combine(root, "Views", "Run", "Index.cshtml");
+        var view = Path.Combine(TestPaths.RepoRoot, "src", "TaskRunner.Api", "Views", "Run", "Index.cshtml");
         Assert.True(File.Exists(view), $"找不到运行台视图：{view}");
         var html = File.ReadAllText(view);
         Assert.Contains("任务运行台", html, StringComparison.Ordinal);

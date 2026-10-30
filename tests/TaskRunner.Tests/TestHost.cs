@@ -36,6 +36,34 @@ internal static class Seed
         new(jobId, "DemoJob", cron, "Demo.Job, Demo", typeof(string), "演示任务", enabled, queue);
 }
 
+/// <summary>Production 宿主共享凭据：原在多个测试文件各写一份，改一处即全改。</summary>
+internal static class TestCredentials
+{
+    public const string Key = "demo-key";
+    public const string Username = "admin";
+    public const string Password = "demo-pass";
+}
+
+/// <summary>从测试输出目录回溯仓库根（找 TaskRunner.sln）；找不到时抛出探测起点，输出目录布局变化易定位。</summary>
+internal static class TestPaths
+{
+    public static string RepoRoot { get; } = FindRepoRoot();
+
+    private static string FindRepoRoot()
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+        {
+            if (File.Exists(Path.Combine(dir.FullName, "TaskRunner.sln")))
+            {
+                return dir.FullName;
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"未找到 TaskRunner.sln（探测起点 {AppContext.BaseDirectory}），请检查测试输出目录布局。");
+    }
+}
+
 /// <summary>记录调度的 fake：断言「运维操作驱动 Hangfire」的可观察证据。</summary>
 internal sealed class RecordingScheduler : ITaskScheduler
 {
@@ -115,9 +143,9 @@ internal sealed class ContractApp : IDisposable
             .UseMemoryStorage());
 
         // 测试件：SQLite 换掉 Npgsql、fake 调度器换掉 HangfireTaskScheduler
-        builder.Services.RemoveAll(typeof(DbContextOptions<TaskRunnerDbContext>));
+        builder.Services.RemoveAll<DbContextOptions<TaskRunnerDbContext>>();
         builder.Services.RemoveAll<TaskRunnerDbContext>();
-        builder.Services.RemoveAll(typeof(IDbContextOptionsConfiguration<TaskRunnerDbContext>));
+        builder.Services.RemoveAll<IDbContextOptionsConfiguration<TaskRunnerDbContext>>();
         builder.Services.AddDbContext<TaskRunnerDbContext>(options => options.UseSqlite($"Data Source={_dbPath}"));
         Scheduler = new RecordingScheduler();
         builder.Services.AddSingleton<ITaskScheduler>(Scheduler);
@@ -147,6 +175,25 @@ internal sealed class ContractApp : IDisposable
     public RecordingScheduler Scheduler { get; }
 
     public HttpClient Client { get; }
+
+    /// <summary>宿主根服务提供程序（供监控读侧等组件直调测试使用）。</summary>
+    public IServiceProvider Services => _app.Services;
+
+    /// <summary>
+    /// Production 形态宿主：默认带共享凭据（Key/Username/Password），与生产装配同构；
+    /// 需要特殊配置（如只读、缺密码的引导文案场景）请直接 new ContractApp 显式构造。
+    /// </summary>
+    public static ContractApp NewProductionApp(params (string Key, string? Value)[] extra)
+    {
+        var settings = new List<(string Key, string? Value)>
+        {
+            ("Hangfire:AdminApiKey", TestCredentials.Key),
+            ("Hangfire:AdminUsername", TestCredentials.Username),
+            ("Hangfire:AdminPassword", TestCredentials.Password)
+        };
+        settings.AddRange(extra);
+        return new(Environments.Production, settings.ToArray());
+    }
 
     /// <summary>新建独立 HttpClient（供不同凭据形态各用一个 client）。</summary>
     public HttpClient CreateClient() => _app.GetTestClient();

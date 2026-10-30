@@ -29,9 +29,9 @@ public sealed class TasksController(
         CancellationToken cancellationToken = default)
     {
         var configs = await repository.ListAsync(cancellationToken);
-        var views = monitoring.ReadTasks(configs);
 
-        // 弱 ETag：数量 + 最大 UpdatedAt 指纹；命中 If-None-Match 返回 304
+        // 弱 ETag：数量 + 最大 UpdatedAt 指纹。先判再读监控数据：命中 If-None-Match 时
+        // Hangfire 存储的全量读取（最贵的一步）整体跳过。
         var maxUpdated = configs.Count == 0 ? DateTime.MinValue : configs.Max(item => item.UpdatedAt);
         var etag = $"W/\"{configs.Count:x8}-{maxUpdated:yyyyMMddHHmmss}\"";
         if (Request.Headers.IfNoneMatch.ToString()
@@ -42,8 +42,9 @@ public sealed class TasksController(
             return StatusCode(StatusCodes.Status304NotModified);
         }
 
+        var views = monitoring.ReadTasks(configs);
         Response.Headers.ETag = etag;
-        Response.Headers["X-Total-Count"] = views.Count.ToString();
+        Response.Headers["X-Total-Count"] = views.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
         if (pageSize > 0)
         {
@@ -58,6 +59,23 @@ public sealed class TasksController(
     [EndpointSummary("统计")]
     [EndpointDescription("成功 / 失败 / 排队 / 处理中。")]
     public ActionResult<JobStatistics> Statistics() => Ok(monitoring.ReadStatistics());
+
+    [HttpGet("cron-preview", Name = "PreviewCron")]
+    [EndpointSummary("Cron 预览")]
+    [EndpointDescription("解析 Cron 表达式并返回未来 5 次执行（UTC ISO）。供运行台行内编辑保存前预览，解析规则与启停/改 Cron 完全一致。")]
+    [ProducesResponseType(typeof(CronPreviewView), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public IActionResult PreviewCron([FromQuery] string? expr)
+    {
+        try
+        {
+            return Ok(new CronPreviewView(CronExpressionGuard.NextOccurrences(expr, 5)));
+        }
+        catch (ArgumentException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Cron 无效", detail: ex.Message);
+        }
+    }
 
     [HttpGet("{jobId}", Name = "GetTask")]
     [EndpointSummary("详情")]
@@ -167,9 +185,10 @@ public sealed class TasksController(
     {
         var config = await repository.FindAsync(jobId, cancellationToken);
         if (config is null) { return TaskNotFound(jobId); }
-        try { CronExpressionGuard.EnsureValid(config.CronExpr); }
-        catch (ArgumentException ex) { return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Cron 无效", detail: ex.Message); }
-        config = await repository.SetEnabledAsync(jobId, true, cancellationToken);
+        if (InvalidCron(config.CronExpr) is { } invalid) { return invalid; }
+
+        // 复用已加载实体更新，避免 SetEnabledAsync 内部再按 JobId 重查同一行。
+        config = await repository.UpdateAsync(config, row => row.IsEnabled = true, cancellationToken);
         scheduler.AddOrUpdateRecurring(config!.JobId, config.JobType, config.CronExpr, config.Queue);
         return Ok(monitoring.ReadOne(config));
     }
@@ -179,15 +198,28 @@ public sealed class TasksController(
     [EndpointSummary("改 Cron")]
     public async Task<ActionResult<TaskConfigView>> UpdateCron(string jobId, UpdateCronRequest request, CancellationToken cancellationToken)
     {
-        try { CronExpressionGuard.EnsureValid(request.Cron); }
-        catch (ArgumentException ex) { return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Cron 无效", detail: ex.Message); }
+        if (InvalidCron(request.Cron) is { } invalid) { return invalid; }
         var config = await repository.UpdateCronAsync(jobId, request.Cron, cancellationToken);
         if (config is null) { return TaskNotFound(jobId); }
         if (config.IsEnabled) { scheduler.AddOrUpdateRecurring(config.JobId, config.JobType, config.CronExpr, config.EffectiveQueue); }
         return Ok(monitoring.ReadOne(config));
     }
 
-    private ActionResult TaskNotFound(string jobId) =>
+    /// <summary>Cron 非法时返回 400 Problem，否则 null——写入口统一走这里，新增端点不易漏校验。</summary>
+    private ObjectResult? InvalidCron(string cron)
+    {
+        try
+        {
+            CronExpressionGuard.EnsureValid(cron);
+            return null;
+        }
+        catch (ArgumentException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Cron 无效", detail: ex.Message);
+        }
+    }
+
+    private ObjectResult TaskNotFound(string jobId) =>
         Problem(
             statusCode: StatusCodes.Status404NotFound,
             title: "任务不存在",

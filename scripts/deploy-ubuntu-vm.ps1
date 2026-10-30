@@ -30,8 +30,26 @@ $remoteTar = "/tmp/$basename"
 $remoteDir = "/tmp/taskrunner-install"
 
 Write-Output "Uploading $packagePath -> ${Target}:$remoteTar ..."
+$localSha = (Get-FileHash -Algorithm SHA256 $packagePath).Hash.ToLowerInvariant()
 scp $packagePath "${Target}:$remoteTar"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+# 上传完整性校验（与 deploy-ubuntu-vm.sh 对齐）：远端 sha256sum 对账，不一致重试一次
+Write-Output "Verifying upload integrity (SHA256) ..."
+$remoteSha = (ssh $Target "sha256sum '$remoteTar' | cut -d' ' -f1")
+if ($LASTEXITCODE -ne 0) { $remoteSha = $null }
+if ($remoteSha -ne $localSha) {
+    Write-Output "Hash mismatch, retrying upload once ..."
+    scp $packagePath "${Target}:$remoteTar"
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    $remoteSha = (ssh $Target "sha256sum '$remoteTar' | cut -d' ' -f1")
+    if ($LASTEXITCODE -ne 0) { $remoteSha = $null }
+}
+if ($remoteSha -ne $localSha) {
+    Write-Error "Package hash mismatch: remote '$remoteSha' != local '$localSha'. Aborting install."
+    exit 1
+}
+Write-Output "SHA256 verified ($($localSha.Substring(0, 12))...)."
 
 $remoteCmd = "rm -rf '$remoteDir' && mkdir -p '$remoteDir' && tar -xzf '$remoteTar' -C '$remoteDir' && sudo bash '$remoteDir/deploy/install.sh'"
 Write-Output "Remote extract + install (sudo required) ..."
