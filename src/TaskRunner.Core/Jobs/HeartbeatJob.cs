@@ -11,7 +11,7 @@ namespace TaskRunner.Core.Jobs;
 /// </summary>
 [RecurringTask("0 * * * * *", JobId = HeartbeatJob.JobIdValue, Name = "平台心跳",
     Description = "每分钟一次的平台心跳；成功代表调度与执行链路及存储读写正常。")]
-public sealed class HeartbeatJob(HttpClient client, IOptions<TaskRunnerOptions> options) : IRecurringJob
+public sealed class HeartbeatJob(IHttpClientFactory httpClientFactory, IOptions<TaskRunnerOptions> options) : IRecurringJob
 {
     public const string JobIdValue = "heartbeat";
     public const string HttpClientName = "heartbeat-ping";
@@ -26,6 +26,8 @@ public sealed class HeartbeatJob(HttpClient client, IOptions<TaskRunnerOptions> 
             return;
         }
 
+        // 命名客户端带 10s 超时（AddHttpClient 配置）；裸注入 HttpClient 不会绑定命名配置。
+        var client = httpClientFactory.CreateClient(HttpClientName);
         using var response = await client.PostAsync(pingUrl, content: null, cancellationToken);
         response.EnsureSuccessStatusCode();
     }

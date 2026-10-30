@@ -35,7 +35,38 @@ public sealed class JobBehaviorTests
             executor.ExecuteAsync("failing", JobTypeName.For(typeof(FailingRecurringJob)), CancellationToken.None));
 
         Assert.Equal("boom", exception.Message);
-        Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Error);
+        // 失败日志只在 Gateway 层记 Error（带耗时与 Console 输出），Executor 不再重复记录
+        Assert.DoesNotContain(logger.Entries, entry => entry.Level == LogLevel.Error);
+    }
+
+    [Fact]
+    public async Task Executor_MissingType_SkipsWithoutThrow()
+    {
+        var logger = new RecordingLogger<JobExecutor>();
+        await using var provider = BuildProvider(logger, _ => { });
+        await using var scope = provider.CreateAsyncScope();
+        var executor = scope.ServiceProvider.GetRequiredService<JobExecutor>();
+
+        // 代码已删除但队列仍可能入队：直接出队（Warning），不抛异常避免重试刷屏
+        var exception = await Record.ExceptionAsync(() =>
+            executor.ExecuteAsync("ghost", "Deleted.Job, Gone", CancellationToken.None));
+
+        Assert.Null(exception);
+        Assert.Contains(logger.Entries, e =>
+            e.Level == LogLevel.Warning && e.Message.Contains("类型已不存在", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Executor_NonRecurringJobType_Throws()
+    {
+        var logger = new RecordingLogger<JobExecutor>();
+        await using var provider = BuildProvider(logger, _ => { });
+        await using var scope = provider.CreateAsyncScope();
+        var executor = scope.ServiceProvider.GetRequiredService<JobExecutor>();
+
+        // 类型存在但没实现 IRecurringJob：配置漂移必须显式失败
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            executor.ExecuteAsync("bad", JobTypeName.For(typeof(string)), CancellationToken.None));
     }
 
     private static ServiceProvider BuildProvider(RecordingLogger<JobExecutor> logger, Action<IServiceCollection> configure)

@@ -26,16 +26,15 @@ public sealed class HangfireJobGateway(
         string jobId,
         string jobTypeName,
         PerformContext context,
-        IJobCancellationToken token)
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
-        var cancellation = token?.ShutdownToken ?? CancellationToken.None;
         var console = new HangfireConsoleJobProgress(context);
         progressContext.Current = console;
         var startedAt = Stopwatch.GetTimestamp();
         console.WriteLine(ConsoleTextColor.Gray, $"▶ 开始 {jobId}");
 
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var maxMinutes = options.Value.MaxJobRuntimeMinutes;
         if (maxMinutes > 0)
         {

@@ -21,6 +21,29 @@ public static partial class QueueNameGuard
         return trimmed;
     }
 
+    /// <summary>整组归一化：逐项 Normalize（Trim + 校验）+ 去重保序；空集回退 default。
+    /// Worker 订阅队列装配与启动期「队列覆盖校验」共用，避免一侧归一化一侧拿原串对比产生误报。</summary>
+    public static string[] NormalizeSet(IEnumerable<string?>? queues)
+    {
+        var source = queues as string[] ?? queues?.ToArray() ?? [];
+        var normalized = new List<string>(source.Length);
+        foreach (var item in source)
+        {
+            var queue = Normalize(item);
+            if (!normalized.Contains(queue, StringComparer.Ordinal))
+            {
+                normalized.Add(queue);
+            }
+        }
+
+        if (normalized.Count == 0)
+        {
+            normalized.Add(Default);
+        }
+
+        return [.. normalized];
+    }
+
     public static void EnsureValid(string queue)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(queue);
