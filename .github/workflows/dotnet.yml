@@ -25,6 +25,7 @@ jobs:
           dotnet-version: '9.0.x'
           # 依赖 packages.lock.json 做缓存键（Directory.Build.props 已开启锁定还原）
           cache: true
+          cache-dependency-path: '**/packages.lock.json'
 
       # 锁定还原：lock 文件与 csproj/中央版本不一致即失败，杜绝「本地悄悄升级依赖」
       - name: Restore (locked mode)
