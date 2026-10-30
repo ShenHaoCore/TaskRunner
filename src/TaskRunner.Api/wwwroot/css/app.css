@@ -19,6 +19,8 @@
     --primary-hover: #828fff;
     --primary-focus: #5e69d1;
     --focus-ring: rgba(94, 105, 209, 0.5);
+    --primary-glow: rgba(94, 105, 209, 0.14);
+    --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.4);
     --success: #27a644;
     --success-tint: rgba(39, 166, 68, 0.14);
     --danger: #eb5757;
@@ -44,6 +46,8 @@ html[data-theme="light"] {
     /* 浅色下单独加深（≥4.5:1 WCAG AA）；深色保持不变 */
     --ink-subtle: #6b7078;
     --ink-tertiary: #71757e;
+    --primary-glow: rgba(94, 105, 209, 0.10);
+    --shadow-card: 0 8px 24px rgba(23, 24, 28, 0.10);
     --success-tint: rgba(39, 166, 68, 0.12);
     --danger-tint: rgba(235, 87, 87, 0.1);
     color-scheme: light;
@@ -241,11 +245,37 @@ code {
     letter-spacing: -0.4px;
 }
 
-/* ── 页头（eyebrow + display + subhead） ───────────────────── */
+/* ── 页头（eyebrow + display + subhead；首页 hero 带光晕与渐变强调字） ── */
 
 .page { flex: 1; padding: 48px 0 64px; }
 
 .page-head { margin-bottom: 28px; }
+
+/* 首页 hero：左上一团 primary 光晕制造背景层次（仅首页，Run 页不带 home-hero） */
+.home-hero { position: relative; }
+
+.home-hero::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: -140px;
+    left: -180px;
+    width: 640px;
+    height: 400px;
+    background: radial-gradient(closest-side, var(--primary-glow), transparent);
+    pointer-events: none;
+}
+
+.home-hero .eyebrow::before {
+    content: "";
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-right: 8px;
+    border-radius: 50%;
+    background: var(--primary);
+    vertical-align: middle;
+}
 
 .eyebrow {
     margin: 0 0 12px;
@@ -264,6 +294,14 @@ code {
     color: var(--ink);
 }
 
+/* h1 关键词渐变强调：primary token 深浅主题共用，无需覆写 */
+.text-gradient {
+    background: linear-gradient(92deg, var(--primary), var(--primary-hover));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
 .subhead {
     margin: 0;
     max-width: 40em;
@@ -279,7 +317,7 @@ code {
     margin-top: 24px;
 }
 
-/* ── 度量格（surface 阶梯 + 数字 26/600；仅 danger/success 语义色） ── */
+/* ── 度量格（surface 阶梯 + 数字 26/600；tint 底 + hover 抬升） ── */
 
 .metric-grid {
     display: grid;
@@ -292,13 +330,23 @@ code {
     border: 1px solid var(--hairline);
     border-radius: var(--radius-md);
     padding: 14px 16px;
+    transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
+
+.metric:hover {
+    transform: translateY(-1px);
+    border-color: var(--hairline-strong);
+}
+
+/* 中性卡 hover 才换底色；语义 tint 卡保持自己的 tint */
+.metric:not(.metric-success):not(.metric-danger):hover { background: var(--surface-2); }
 
 .metric-body {
     font-size: 26px;
     font-weight: 600;
     letter-spacing: -0.5px;
     color: var(--ink);
+    font-variant-numeric: tabular-nums;
 }
 
 .metric-desc {
@@ -307,11 +355,15 @@ code {
     color: var(--ink-subtle);
 }
 
-.metric-danger { border-color: var(--danger); }
-.metric-danger .metric-body { color: var(--danger); }
+.metric-icon { margin-right: 4px; color: var(--ink-tertiary); }
 
-.metric-success { border-color: var(--success); }
+.metric-danger { border-color: var(--danger); background: var(--danger-tint); }
+.metric-danger .metric-body { color: var(--danger); }
+.metric-danger .metric-icon { color: var(--danger); }
+
+.metric-success { border-color: var(--success); background: var(--success-tint); }
 .metric-success .metric-body { color: var(--success); }
+.metric-success .metric-icon { color: var(--success); }
 
 .hint {
     margin: 16px 0 0;
@@ -320,6 +372,125 @@ code {
 }
 
 .hint a { color: var(--primary); }
+
+/* ── 首页 24h 趋势（纯 CSS 迷你柱状图：服务端算高度，零 JS） ── */
+
+.trend {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--hairline);
+}
+
+.trend-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 48px;
+}
+
+.trend-group {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.trend-bar {
+    display: block;
+    flex: 1;
+    min-width: 2px;
+    border-radius: 2px 2px 0 0;
+}
+
+.bar-ok { background: var(--primary); opacity: 0.85; }
+.bar-bad { background: var(--danger); }
+
+.trend-axis {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--ink-subtle);
+}
+
+.trend-legend { display: flex; align-items: center; gap: 6px; }
+.trend-legend-sep { width: 8px; }
+
+.dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.dot-ok { background: var(--primary); }
+.dot-bad { background: var(--danger); }
+
+.trend-empty {
+    padding: 18px 0 2px;
+    border-top: none;
+    font-size: 13px;
+    color: var(--ink-subtle);
+}
+
+/* ── 首页最近执行（状态点 + 名称 + 时间/耗时 + 失败原因） ── */
+
+.recent-card { margin-top: 20px; }
+
+.recent-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.recent-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 4px 12px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--hairline);
+}
+
+.recent-item:last-child { border-bottom: none; }
+
+.state-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+}
+
+.state-dot.ok { background: var(--success); }
+.state-dot.bad { background: var(--danger); }
+
+.recent-name {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.recent-name strong { font-weight: 500; }
+
+.recent-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--ink-subtle);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.recent-reason {
+    grid-column: 2 / 4;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 
 /* ── 入口卡（feature-card：surface-1、radius 12、24px padding） ── */
 
@@ -334,13 +505,15 @@ code {
     position: relative;
     display: block;
     color: var(--ink);
-    transition: border-color 0.15s ease, background 0.15s ease;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .entry:hover {
     color: var(--ink);
     background: var(--surface-2);
     border-color: var(--hairline-strong);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card);
 }
 
 .entry h3 {
@@ -362,7 +535,15 @@ code {
     right: 20px;
     color: var(--ink-tertiary);
     font-size: 14px;
+    transition: transform 0.15s ease, color 0.15s ease;
 }
+
+.entry:hover .entry-arrow {
+    transform: translate(2px, -2px);
+    color: var(--primary);
+}
+
+.entry-icon { margin-right: 8px; color: var(--primary); font-size: 15px; }
 
 /* ── 表格（行发丝线、hover surface-2、表头 caption） ─────────── */
 
@@ -482,6 +663,8 @@ code {
 @media (prefers-reduced-motion: reduce) {
     .flash { transition: none; }
     .flash-leaving { transform: none; }
+    .metric, .entry, .entry-arrow { transition: none; }
+    .metric:hover, .entry:hover, .entry:hover .entry-arrow { transform: none; }
 }
 
 .flash-success { border-color: var(--success); background: var(--success-tint); color: var(--ink); }

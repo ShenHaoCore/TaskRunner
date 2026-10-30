@@ -176,6 +176,9 @@ internal sealed class ContractApp : IDisposable
 
     public HttpClient Client { get; }
 
+    /// <summary>宿主根服务提供程序（供监控读侧等组件直调测试使用）。</summary>
+    public IServiceProvider Services => _app.Services;
+
     /// <summary>
     /// Production 形态宿主：默认带共享凭据（Key/Username/Password），与生产装配同构；
     /// 需要特殊配置（如只读、缺密码的引导文案场景）请直接 new ContractApp 显式构造。

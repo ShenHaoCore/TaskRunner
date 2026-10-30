@@ -25,6 +25,8 @@ public sealed class HomeController(
         var heartbeat = authenticated && options.Value.HeartbeatEnabled
             ? monitoring.ReadHeartbeat()
             : null;
+        var trend = authenticated ? monitoring.ReadHourlyTrend() : [];
+        var recent = authenticated ? monitoring.ReadRecentExecutions() : [];
 
         return View(new HomeViewModel(
             Authenticated: authenticated,
@@ -35,7 +37,9 @@ public sealed class HomeController(
             Stats: stats,
             WorkerOnline: (stats?.Servers ?? 0) > 0,
             HeartbeatLast: heartbeat?.LastExecution,
-            HeartbeatNext: heartbeat?.NextExecution));
+            HeartbeatNext: heartbeat?.NextExecution,
+            Trend: trend,
+            Recent: recent));
     }
 
     public sealed record HomeViewModel(
@@ -47,5 +51,7 @@ public sealed class HomeController(
         JobStatistics? Stats,
         bool WorkerOnline,
         DateTime? HeartbeatLast,
-        DateTime? HeartbeatNext);
+        DateTime? HeartbeatNext,
+        IReadOnlyList<TrendPoint> Trend,
+        IReadOnlyList<RecentExecution> Recent);
 }
