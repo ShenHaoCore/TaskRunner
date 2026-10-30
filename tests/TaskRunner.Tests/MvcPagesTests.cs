@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using TaskRunner.Core.Services;
 
 namespace TaskRunner.Tests;
 
@@ -151,6 +153,100 @@ public sealed class MvcPagesTests
 
     private static ContractApp NewApp() => ContractApp.NewProductionApp();
 
+    [Fact]
+    public async Task UpdateCron_Post_Persists_AndFlashes()
+    {
+        using var app = NewApp();
+        app.Seed(Seed.Demo());
+
+        var client = await LoginAsync(app);
+        var response = await PostFormAsync(
+            app, "/run/demo-job/cron",
+            new Dictionary<string, string> { ["cron"] = "0 45 10 * * *" },
+            client, formPageUri: "/run");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        CopyCookies(response, client);
+
+        // PRG 回来展示一次性提示
+        var followed = await client.GetAsync(response.Headers.Location!);
+        var body = WebUtility.HtmlDecode(await followed.Content.ReadAsStringAsync());
+        Assert.Contains("已更新 demo-job 的 Cron", body);
+
+        // 库中持久化（xmin 通道）
+        using var scope = app.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<ITaskConfigRepository>();
+        var stored = await repository.FindAsync("demo-job", CancellationToken.None);
+        Assert.Equal("0 45 10 * * *", stored!.CronExpr);
+    }
+
+    [Fact]
+    public async Task UpdateCron_Post_InvalidCron_FlashesError_WithoutChange()
+    {
+        using var app = NewApp();
+        app.Seed(Seed.Demo());
+
+        var client = await LoginAsync(app);
+        var response = await PostFormAsync(
+            app, "/run/demo-job/cron",
+            new Dictionary<string, string> { ["cron"] = "not a cron" },
+            client, formPageUri: "/run");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        CopyCookies(response, client);
+
+        var followed = await client.GetAsync(response.Headers.Location!);
+        var body = WebUtility.HtmlDecode(await followed.Content.ReadAsStringAsync());
+        Assert.Contains("Cron 无效", body);
+
+        using var scope = app.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<ITaskConfigRepository>();
+        var stored = await repository.FindAsync("demo-job", CancellationToken.None);
+        Assert.Equal("*/5 * * * * *", stored!.CronExpr);
+    }
+
+    [Fact]
+    public async Task Bulk_Pause_DisablesSelectedTasks_AndFlashesSummary()
+    {
+        using var app = NewApp();
+        app.Seed(Seed.Demo(), Seed.Demo("second-job", "0 0 12 * * *"));
+
+        var client = await LoginAsync(app);
+        // 勾选项在表格外由 JS 写入隐藏域；测试直接以两个 jobIds 键值对模拟提交
+        var fields = new List<KeyValuePair<string, string>>
+        {
+            new("action", "pause"),
+            new("jobIds", "demo-job"),
+            new("jobIds", "second-job")
+        };
+        var response = await PostFormAsync(app, "/run/bulk", fields, client, formPageUri: "/run");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        CopyCookies(response, client);
+
+        var followed = await client.GetAsync(response.Headers.Location!);
+        var body = WebUtility.HtmlDecode(await followed.Content.ReadAsStringAsync());
+        Assert.Contains("暂停完成：成功 2。", body);
+
+        using var scope = app.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<ITaskConfigRepository>();
+        Assert.False((await repository.FindAsync("demo-job", CancellationToken.None))!.IsEnabled);
+        Assert.False((await repository.FindAsync("second-job", CancellationToken.None))!.IsEnabled);
+    }
+
+    [Fact]
+    public async Task Run_QueueFilter_ShowsOnlyMatchingTasks()
+    {
+        using var app = NewApp();
+        app.Seed(Seed.Demo(), Seed.Demo("q-job", "0 0 13 * * *", queue: "critical"));
+
+        var client = await LoginAsync(app);
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync("/run?queue=critical"));
+
+        Assert.Contains("q-job", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("demo-job", html, StringComparison.Ordinal);
+    }
+
     /// <summary>表单登录：取防伪令牌 → POST → 回写会话 Cookie。</summary>
     private static async Task<HttpClient> LoginAsync(ContractApp app)
     {
@@ -168,7 +264,7 @@ public sealed class MvcPagesTests
 
     /// <summary>表单 POST 需要防伪令牌：先 GET 表单页，抓隐藏域并回写防伪 Cookie，再 POST。</summary>
     private static async Task<HttpResponseMessage> PostFormAsync(
-        ContractApp app, string postUri, Dictionary<string, string> fields,
+        ContractApp app, string postUri, IEnumerable<KeyValuePair<string, string>> fields,
         HttpClient? client = null, string? formPageUri = null)
     {
         client ??= app.CreateClient();
@@ -176,10 +272,15 @@ public sealed class MvcPagesTests
 
         var page = await client.GetAsync(formPageUri);
         var html = await page.Content.ReadAsStringAsync();
-        fields[TokenField] = ExtractAntiForgeryToken(html);
+        // List 保留重复键（如 bulk 的多个 jobIds）；防伪令牌以本次 GET 的为准（去旧防重）
+        var payload = new List<KeyValuePair<string, string>>(
+            fields.Where(field => field.Key != TokenField))
+        {
+            new(TokenField, ExtractAntiForgeryToken(html))
+        };
         CopyCookies(page, client);
 
-        using var form = new FormUrlEncodedContent(fields);
+        using var form = new FormUrlEncodedContent(payload);
         return await client.PostAsync(postUri, form);
     }
 

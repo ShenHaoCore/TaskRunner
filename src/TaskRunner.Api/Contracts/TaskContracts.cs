@@ -21,3 +21,6 @@ public sealed record TriggerRequest
 
     public int? DelaySeconds { get; init; }
 }
+
+/// <summary>Cron 下次执行预览（UTC ISO 时间，最多 5 条）。</summary>
+public sealed record CronPreviewView(IReadOnlyList<DateTime> Occurrences);

@@ -60,6 +60,23 @@ public sealed class TasksController(
     [EndpointDescription("成功 / 失败 / 排队 / 处理中。")]
     public ActionResult<JobStatistics> Statistics() => Ok(monitoring.ReadStatistics());
 
+    [HttpGet("cron-preview", Name = "PreviewCron")]
+    [EndpointSummary("Cron 预览")]
+    [EndpointDescription("解析 Cron 表达式并返回未来 5 次执行（UTC ISO）。供运行台行内编辑保存前预览，解析规则与启停/改 Cron 完全一致。")]
+    [ProducesResponseType(typeof(CronPreviewView), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public IActionResult PreviewCron([FromQuery] string? expr)
+    {
+        try
+        {
+            return Ok(new CronPreviewView(CronExpressionGuard.NextOccurrences(expr, 5)));
+        }
+        catch (ArgumentException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Cron 无效", detail: ex.Message);
+        }
+    }
+
     [HttpGet("{jobId}", Name = "GetTask")]
     [EndpointSummary("详情")]
     [ProducesResponseType(typeof(TaskConfigView), StatusCodes.Status200OK)]
