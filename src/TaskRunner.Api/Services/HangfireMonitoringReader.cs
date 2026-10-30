@@ -33,40 +33,11 @@ public sealed class HangfireMonitoringReader(JobStorage storage, IJobCatalog cat
     }
 
     /// <summary>
-    /// 近 N 小时的成功/失败按小时计数（Hangfire stats 自带按小时聚合，无自建存储）。
-    /// 聚合桶的时区由存储实现决定，故不按绝对时刻过滤，按桶序取最近 N 个并升序返回。
-    /// 读取失败时优雅降级为空列表（监控读侧不拖垮页面）。
-    /// </summary>
-    public IReadOnlyList<TrendPoint> ReadHourlyTrend(int hours = 24)
-    {
-        hours = Math.Clamp(hours, 1, 24);
-        try
-        {
-            var monitoring = storage.GetMonitoringApi();
-            var succeeded = monitoring.HourlySucceededJobs();
-            var failed = monitoring.HourlyFailedJobs();
-            return succeeded.Keys.Union(failed.Keys)
-                .OrderByDescending(hour => hour)
-                .Take(hours)
-                .OrderBy(hour => hour)
-                .Select(hour => new TrendPoint(
-                    hour,
-                    succeeded.TryGetValue(hour, out var ok) ? ok : 0,
-                    failed.TryGetValue(hour, out var bad) ? bad : 0))
-                .ToList();
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "读取小时级执行趋势失败。");
-            return [];
-        }
-    }
-
-    /// <summary>
-    /// 全站最近执行（成功 + 失败混合，按时间倒序）。jobId 取自 Gateway 作业参数首位的约定，
+    /// 全站最近执行（成功 + 失败混合，按时间倒序；failuresOnly=true 跳过成功扫描，
+    /// 供首页「最近失败」差异化展示）。jobId 取自 Gateway 作业参数首位的约定，
     /// 显示名从任务目录补齐；读取失败时优雅降级为空列表。
     /// </summary>
-    public IReadOnlyList<RecentExecution> ReadRecentExecutions(int limit = 8)
+    public IReadOnlyList<RecentExecution> ReadRecentExecutions(int limit = 8, bool failuresOnly = false)
     {
         limit = Math.Clamp(limit, 1, 50);
         var items = new List<RecentExecution>();
@@ -75,33 +46,36 @@ public sealed class HangfireMonitoringReader(JobStorage storage, IJobCatalog cat
             .GroupBy(job => job.JobId, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First().JobName, StringComparer.Ordinal);
 
-        try
+        if (!failuresOnly)
         {
-            foreach (var pair in monitoring.SucceededJobs(0, limit * 3))
+            try
             {
-                var dto = pair.Value;
-                var jobId = ExtractJobId(dto?.Job);
-                if (jobId is null)
+                foreach (var pair in monitoring.SucceededJobs(0, limit * 3))
                 {
-                    continue;
-                }
+                    var dto = pair.Value;
+                    var jobId = ExtractJobId(dto?.Job);
+                    if (jobId is null)
+                    {
+                        continue;
+                    }
 
-                items.Add(new RecentExecution(
-                    jobId,
-                    displayNames.GetValueOrDefault(jobId),
-                    "Succeeded",
-                    dto?.SucceededAt,
-                    null,
-                    dto?.TotalDuration));
-                if (items.Count >= limit * 2)
-                {
-                    break;
+                    items.Add(new RecentExecution(
+                        jobId,
+                        displayNames.GetValueOrDefault(jobId),
+                        "Succeeded",
+                        dto?.SucceededAt,
+                        null,
+                        dto?.TotalDuration));
+                    if (items.Count >= limit * 2)
+                    {
+                        break;
+                    }
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "读取最近成功作业失败。");
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "读取最近成功作业失败。");
+            }
         }
 
         try

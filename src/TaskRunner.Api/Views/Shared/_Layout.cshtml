@@ -30,10 +30,9 @@
         <div class="container nav-inner">
             <a class="brand" href="/"><img class="brand-mark" src="~/mark.svg" asp-append-version="true" alt="" />TaskRunner</a>
             <nav class="nav-links" aria-label="主导航">
-                <a href="/" class="@(navActive == "home" ? "active" : null)" aria-current="@(navActive == "home" ? "page" : null)">仪表盘</a>
+                <a href="/" class="@(navActive == "home" ? "active" : null)" aria-current="@(navActive == "home" ? "page" : null)">总览</a>
                 <a href="/run" class="@(navActive == "run" ? "active" : null)" aria-current="@(navActive == "run" ? "page" : null)">运行台</a>
                 <a href="@dashboardPath">Dashboard</a>
-                <a href="/api/tasks">任务 API</a>
             </nav>
             <span class="nav-spacer"></span>
             <span class="status-badge">@HostEnv.EnvironmentName@(readOnly ? " · 只读" : "")</span>
@@ -52,7 +51,7 @@
         </div>
     </div>
 
-    <main class="container page">
+    <main class="container page" @if (ViewData["AutoRefresh"] is string autoRefresh) { <text>data-auto-refresh="@autoRefresh"</text> }>
         @if (TempData["Flash"] is string flashOk)
         {
             <div class="flash flash-success" role="status" data-auto-dismiss="true">@flashOk</div>

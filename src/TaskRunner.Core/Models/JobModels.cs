@@ -25,10 +25,7 @@ public sealed record JobHistoryItem(
     DateTime? OccurredAt,
     string? Reason);
 
-/// <summary>单小时执行计数（Hangfire stats 按小时聚合），用于首页 24h 趋势。</summary>
-public sealed record TrendPoint(DateTime Hour, long Succeeded, long Failed);
-
-/// <summary>全站最近一次作业执行（成功/失败），用于首页「最近执行」列表。</summary>
+/// <summary>全站最近一次作业执行（成功/失败），用于首页「最近失败」与运行台场景。</summary>
 public sealed record RecentExecution(
     string JobId,
     string? JobName,

@@ -3,25 +3,28 @@ using System.Net.Http.Json;
 
 namespace TaskRunner.Tests;
 
-/// <summary>首页改版契约：hero/活数据模块（趋势 + 最近执行）随登录态正确渲染。</summary>
+/// <summary>首页轻量化契约：健康信号 + 最近失败；统计图表让位 Dashboard，匿名不访问 Hangfire。</summary>
 public sealed class HomePageTests
 {
     [Fact]
-    public async Task HomePage_Authenticated_RendersLiveModules()
+    public async Task HomePage_Authenticated_ShowsHealthSignals_AndRecentFailures()
     {
         using var app = ContractApp.NewProductionApp();
         var client = await LoginAsync(app);
         app.Seed(Seed.Demo());
 
         var html = await client.GetStringAsync("/");
+        // Razor 输出中文会 HTML 编码，先解码再断言
+        html = WebUtility.HtmlDecode(html);
 
-        Assert.Contains("text-gradient", html, StringComparison.Ordinal);
-        Assert.Contains("运行概览", html, StringComparison.Ordinal);
-        Assert.Contains("已预约", html, StringComparison.Ordinal);
-        // 空存储 → 趋势与最近执行显示空态而非缺模块
-        Assert.Contains("暂无执行数据", html, StringComparison.Ordinal);
-        Assert.Contains("暂无执行记录", html, StringComparison.Ordinal);
-        Assert.Contains("最近执行", html, StringComparison.Ordinal);
+        Assert.Contains("系统状态", html, StringComparison.Ordinal);
+        // 空存储无失败 → 失败列表整块不渲染，状态行显示「无失败记录」
+        Assert.Contains("无失败记录", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("recent-block", html, StringComparison.Ordinal);
+        // 已精简：不再渲染与 Dashboard 同源的指标卡与入口卡
+        Assert.DoesNotContain("运行概览", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("metric-grid", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("entry-grid", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -32,11 +35,12 @@ public sealed class HomePageTests
         var response = await app.Client.GetAsync("/");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var html = await response.Content.ReadAsStringAsync();
-        Assert.Contains("运行概览", html, StringComparison.Ordinal);
-        Assert.Contains("统计需要管理员鉴权", html, StringComparison.Ordinal);
-        // 匿名不渲染活数据模块（Hangfire 零访问）
-        Assert.DoesNotContain("最近执行", html, StringComparison.Ordinal);
+        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+        Assert.Contains("系统状态", html, StringComparison.Ordinal);
+        Assert.Contains("健康状态需要管理员鉴权", html, StringComparison.Ordinal);
+        // 匿名不渲染失败列表（Hangfire 零访问）
+        Assert.DoesNotContain("最近失败", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("recent-block", html, StringComparison.Ordinal);
     }
 
     private static async Task<HttpClient> LoginAsync(ContractApp app)
