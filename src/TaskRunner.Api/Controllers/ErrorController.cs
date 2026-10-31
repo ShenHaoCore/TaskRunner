@@ -32,7 +32,7 @@ public sealed class ErrorController : Controller
         {
             return Problem(
                 statusCode: statusCode,
-                title: statusCode == StatusCodes.Status404NotFound ? "资源不存在" : "服务器内部错误",
+                title: Describe(statusCode),
                 detail: $"请求路径 {originalPath} 返回 {statusCode}。");
         }
 
@@ -54,6 +54,17 @@ public sealed class ErrorController : Controller
                 _ => "请求失败"
             }));
     }
+
+    /// <summary>按状态段给语义标题：401/403/429 经 StatusCodePages 重执行到这里时不能被标成 5xx 语义。</summary>
+    private static string Describe(int statusCode) => statusCode switch
+    {
+        StatusCodes.Status404NotFound => "资源不存在",
+        StatusCodes.Status401Unauthorized => "需要认证",
+        StatusCodes.Status403Forbidden => "没有权限",
+        StatusCodes.Status429TooManyRequests => "请求过于频繁",
+        < 500 => "请求被拒绝",
+        _ => "服务器内部错误"
+    };
 
     public sealed record ErrorViewModel(int StatusCode, string Title);
 }

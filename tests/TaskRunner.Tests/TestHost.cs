@@ -71,13 +71,18 @@ internal sealed class RecordingScheduler : ITaskScheduler
     public List<string> Removed { get; } = [];
     public List<string> Enqueued { get; } = [];
     public List<string> Scheduled { get; } = [];
+    public List<IReadOnlyCollection<string>> PruneKeepCalls { get; } = [];
 
     public void AddOrUpdateRecurring(string jobId, string jobType, string cron, string queue) =>
         Added.Add($"{jobId}|{cron}|{queue}");
 
     public void RemoveRecurring(string jobId) => Removed.Add(jobId);
 
-    public IReadOnlyList<string> PruneRecurringExcept(IReadOnlyCollection<string> keepJobIds) => [];
+    public IReadOnlyList<string> PruneRecurringExcept(IReadOnlyCollection<string> keepJobIds)
+    {
+        PruneKeepCalls.Add(keepJobIds);
+        return [];
+    }
 
     public string Enqueue(string jobId, string jobType, string queue)
     {
@@ -97,6 +102,7 @@ internal sealed class RecordingScheduler : ITaskScheduler
         Removed.Clear();
         Enqueued.Clear();
         Scheduled.Clear();
+        PruneKeepCalls.Clear();
     }
 }
 

@@ -30,15 +30,20 @@ public sealed class TasksController(
     {
         var configs = await repository.ListAsync(cancellationToken);
 
-        // 弱 ETag：数量 + 最大 UpdatedAt 指纹。先判再读监控数据：命中 If-None-Match 时
-        // Hangfire 存储的全量读取（最贵的一步）整体跳过。
-        var maxUpdated = configs.Count == 0 ? DateTime.MinValue : configs.Max(item => item.UpdatedAt);
-        var etag = $"W/\"{configs.Count:x8}-{maxUpdated:yyyyMMddHHmmss}\"";
+        // 指纹：排序后 (JobId, UpdatedAt.Ticks) 序列的哈希 + 分页参数。
+        // 不用「数量+最大 UpdatedAt 秒级截断」：同一秒内连续两次写入会误命中 304（客户端拿到过期缓存），
+        // 且不同分页是不同表示，必须各自持有 ETag。
+        var fingerprint = string.Join(";",
+            configs.OrderBy(item => item.JobId, StringComparer.Ordinal).Select(item => $"{item.JobId}:{item.UpdatedAt.Ticks}")) +
+            $"|{page}:{pageSize}";
+        var etag = $"W/\"{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(fingerprint)))[..16]}\"";
+
         if (Request.Headers.IfNoneMatch.ToString()
             .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .Contains(etag, StringComparer.Ordinal))
         {
             Response.Headers.ETag = etag;
+            Response.Headers["X-Total-Count"] = configs.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
             return StatusCode(StatusCodes.Status304NotModified);
         }
 

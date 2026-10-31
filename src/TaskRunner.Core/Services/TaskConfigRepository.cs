@@ -61,8 +61,12 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
 
         // 会话级锁与后续 EF 查询共用这条显式打开的连接（同一会话），锁期间整个编排串行化。
         await db.Database.OpenConnectionAsync(cancellationToken);
+        var previousTimeout = db.Database.GetCommandTimeout();
         try
         {
+            // 等锁命令可能超过默认 30s CommandTimeout（另一进程正持锁跑重量级迁移）——
+            // 置 0 表示等到获得为止，与「启动编排串行化」的设计预期一致；退出时恢复原值。
+            db.Database.SetCommandTimeout(0);
             await db.Database.ExecuteSqlRawAsync(
                 $"SELECT pg_advisory_lock({MigrateAdvisoryLockId});", cancellationToken);
             try
@@ -77,6 +81,7 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
         }
         finally
         {
+            db.Database.SetCommandTimeout(previousTimeout);
             await db.Database.CloseConnectionAsync();
         }
     }
@@ -153,6 +158,10 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
         return existing.Concat(added).OrderBy(item => item.JobId, StringComparer.Ordinal).ToList();
     }
 
+    /// <summary>发现集缺失任务的删除宽限（分钟）：滚动升级期间 Api/Worker 版本短暂不一致，
+    /// 旧进程的发现集不含新任务——立即删除会误删新版本刚注册的任务并摘除其 recurring。</summary>
+    public const int OrphanGraceMinutes = 10;
+
     public async Task<IReadOnlyList<string>> RemoveMissingAsync(
         IReadOnlyCollection<string> discoveredJobIds,
         CancellationToken cancellationToken)
@@ -164,8 +173,11 @@ public sealed class TaskConfigRepository(TaskRunnerDbContext db) : ITaskConfigRe
         }
 
         var discovered = discoveredJobIds.ToHashSet(StringComparer.Ordinal);
+        var graceDeadline = DateTime.UtcNow - TimeSpan.FromMinutes(OrphanGraceMinutes);
         var all = await db.TaskConfigs.ToListAsync(cancellationToken);
-        var orphans = all.Where(item => !discovered.Contains(item.JobId)).ToList();
+        var orphans = all
+            .Where(item => !discovered.Contains(item.JobId) && item.UpdatedAt < graceDeadline)
+            .ToList();
         if (orphans.Count == 0)
         {
             return [];

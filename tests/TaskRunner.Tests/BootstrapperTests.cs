@@ -82,6 +82,14 @@ public sealed class BootstrapperTests : IDisposable
                 Seed.Demo(),
                 new RecurringJobDescriptor("gone-job", "Gone", "*/5 * * * * *", "T, A", typeof(string), null, true)
             ], CancellationToken.None);
+
+            // 孤儿已超过宽限期（真废弃）→ 编排时清理并记日志
+            var db = scope.ServiceProvider.GetRequiredService<TaskRunnerDbContext>();
+            await db.TaskConfigs
+                .Where(row => row.JobId == "gone-job")
+                .ExecuteUpdateAsync(
+                    setter => setter.SetProperty(row => row.UpdatedAt, DateTime.UtcNow.AddMinutes(-TaskRunner.Core.Services.TaskConfigRepository.OrphanGraceMinutes - 1)),
+                    CancellationToken.None);
         }
 
         await bootstrapper.StartingAsync(CancellationToken.None);
@@ -122,6 +130,31 @@ public sealed class BootstrapperTests : IDisposable
 
         Assert.Contains(logger.Entries, e =>
             e.Level == LogLevel.Warning && e.Message.Contains("死信告警不会生效", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task PruneKeep_IncludesDeferredOrphans_FromDatabase()
+    {
+        var scheduler = new RecordingScheduler();
+        var (bootstrapper, logger) = Build([Seed.Demo()], scheduler);
+        // 库中有一个宽限期内的「孤儿」（模拟滚动升级中另一版本注册的任务）
+        await using (var scope = _provider!.CreateAsyncScope())
+        {
+            var repository = scope.ServiceProvider.GetRequiredService<ITaskConfigRepository>();
+            await repository.InitializeAsync(CancellationToken.None);
+            await repository.SyncDiscoveredAsync(
+            [
+                Seed.Demo(),
+                new RecurringJobDescriptor("new-in-other-version", "New", "*/5 * * * * *", "T, A", typeof(string), null, true)
+            ], CancellationToken.None);
+        }
+
+        await bootstrapper.StartingAsync(CancellationToken.None);
+
+        // prune 的保留清单必须包含库中现存行（否则旧版本进程会摘掉新版本的 recurring）
+        var keep = Assert.Single(scheduler.PruneKeepCalls);
+        Assert.Contains("new-in-other-version", keep);
+        Assert.Contains("demo-job", keep);
     }
 
     [Fact]

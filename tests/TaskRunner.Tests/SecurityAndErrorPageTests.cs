@@ -49,4 +49,18 @@ public sealed class SecurityAndErrorPageTests
         Assert.Equal(404, json.GetProperty("status").GetInt32());
         Assert.Contains("/api/no-such-endpoint", json.GetProperty("detail").GetString(), StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task ApiRoute_401_TitleMatchesStatusSemantics()
+    {
+        using var app = ContractApp.NewProductionApp();
+
+        // 401 经 StatusCodePages 重执行 /error/401：标题必须是「需要认证」而非「服务器内部错误」
+        var response = await app.Client.GetAsync("/api/tasks");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(401, json.GetProperty("status").GetInt32());
+        Assert.Equal("需要认证", json.GetProperty("title").GetString());
+    }
 }

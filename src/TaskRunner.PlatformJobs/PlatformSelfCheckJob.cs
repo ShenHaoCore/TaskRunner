@@ -56,10 +56,10 @@ public sealed class PlatformSelfCheckJob(
         // 2. 日志目录可写性
         foreach (var directory in LogDirectories.Resolve(configuration))
         {
+            var probe = Path.Combine(directory, $".self-check-{Guid.NewGuid():N}.tmp");
             try
             {
                 Directory.CreateDirectory(directory);
-                var probe = Path.Combine(directory, $".self-check-{Guid.NewGuid():N}.tmp");
                 await File.WriteAllTextAsync(probe, "probe", cancellationToken);
                 File.Delete(probe);
                 progress.WriteLine($"✓ 日志目录可写：{directory}");
@@ -68,6 +68,21 @@ public sealed class PlatformSelfCheckJob(
             {
                 issues++;
                 progress.WriteLine($"✗ 日志目录不可写：{directory}（{ex.Message}）");
+            }
+            finally
+            {
+                // 写成功但删除前出异常（取消/磁盘满/杀软短暂锁定）时不留探针残留
+                try
+                {
+                    if (File.Exists(probe))
+                    {
+                        File.Delete(probe);
+                    }
+                }
+                catch
+                {
+                    // 清理失败不打断巡检；.tmp 后缀不会进入日志清理的扫描范围
+                }
             }
         }
 

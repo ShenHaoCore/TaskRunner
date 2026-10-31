@@ -262,6 +262,29 @@ public sealed class RestContractTests
     }
 
     [Fact]
+    public async Task List_ETag_ChangesOnSameSecondWrites_AndPerPage()
+    {
+        using var app = new ContractApp();
+        app.Seed(Seed.Demo(), Seed.Demo("second-job", "0 0 12 * * *"));
+
+        var first = await app.Client.GetAsync("/api/tasks");
+        var etag = first.Headers.ETag!.Tag;
+
+        // 同一秒内连续两次写：旧的「数量+秒级截断」指纹会误命中 304，客户端拿到过期缓存
+        await app.Client.PostAsync("/api/tasks/demo-job/pause", null);
+        await app.Client.PostAsync("/api/tasks/second-job/pause", null);
+
+        var revalidate = new HttpRequestMessage(HttpMethod.Get, "/api/tasks");
+        revalidate.Headers.IfNoneMatch.Add(new System.Net.Http.Headers.EntityTagHeaderValue(etag));
+        var second = await app.Client.SendAsync(revalidate);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+
+        // 不同分页是不同表示，各自持有 ETag
+        var paged = await app.Client.GetAsync("/api/tasks?page=1&pageSize=1");
+        Assert.NotEqual(etag, paged.Headers.ETag!.Tag);
+    }
+
+    [Fact]
     public async Task UnknownJobId_MapsTo404_WithMessage()
     {
         using var app = new ContractApp();
