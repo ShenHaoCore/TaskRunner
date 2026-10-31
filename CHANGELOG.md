@@ -2,7 +2,24 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## 3.10.0 - 2026-10-31
+## 3.11.0 - 未发布
+
+发布后全量代码审查（双代理 + 真机浏览器验证）的修复批次；测试 128 → 136。
+
+### 修复
+
+- **批量操作「暂停」必然失败**：防重处理器禁用了第一个提交按钮（正是暂停提交器），而禁用字段不进 FormData——请求丢失 `action` 字段被服务端判为「未知操作」；恢复/触发则存在双击重复提交。现先把提交器 name/value 写入隐藏域再禁用全部按钮
+- **运行台（可操作模式）自动刷新从不触发**：`interactionOpen` 查 `.cron-editor:not([hidden])`，而 `hidden` 在父行 `<tr class="cron-row">` 上——恒判「交互中」短路两条刷新路径；并新增「焦点在输入控件内不刷新」守卫
+- **Cron 预览过期响应竞态**：连续编辑时慢的旧请求后到会覆盖新表达式的预览——引入请求序号，过期响应丢弃
+- **`/api/tasks` ETag 误命中 304**：旧指纹「数量+最大 UpdatedAt 秒级截断」——同一秒内连续两次写入客户端拿到过期缓存，且不同分页共用 ETag；改为排序后 `(JobId, UpdatedAt.Ticks)` 哈希 + 分页参数，304 分支补 `X-Total-Count`
+- **只读模式拦死认证流**：`ReadOnlyGuardFilter` 把 POST /login、/api/auth/* 一并 403，只读模式下无法登录也无法登出——认证流路径放行，任务写操作照拦
+- **`/error` 把 401/403/429 标成「服务器内部错误」**：按状态段给语义标题（需要认证/没有权限/请求过于频繁/…）
+- **机器客户端 401 无 `WWW-Authenticate`**：与 Dashboard/openapi 守卫不一致，Basic 方案不可发现——补 `Basic realm="TaskRunner"`
+- **advisory lock 等待受 30s CommandTimeout 限制**：并发首启遇到长迁移会超时崩溃而非等待——锁获取/持有期间 CommandTimeout=0，退出恢复
+- **滚动升级版本偏斜静默删任务**：Api 新版 + Worker 旧版并行重启时，旧进程发现集不含新任务 → 删配置行 + 摘 recurring，新任务凭空消失——`RemoveMissingAsync` 增加 10 分钟宽限期，prune 保留清单并入库中现存行
+- **日志清理单文件失败中断整轮**：被占用/只读文件抛异常终止后续扫描且统计失真——逐文件容错，汇总单列「失败 N 个」
+- **平台自检探针残留**：写删之间异常留下 `.self-check-*.tmp` 永不回收——finally 兜底清理
+- **flash 监听悬挂**：dismiss 后 document 级 visibilitychange 监听不解绑——AbortController 随元素移除解绑
 
 全面质量轮：后端正确性修复、前端安全与体验、自定义页面精简与增强、工程化与 CI 门禁、平台自带任务集；测试 78 → 127 全绿。
 
