@@ -34,6 +34,7 @@ public sealed class LogCleanupJob(
 
         var scanned = 0;
         var deleted = 0;
+        var failed = 0;
         var freedBytes = 0L;
         var cutoff = DateTime.UtcNow.AddDays(-retentionDays);
 
@@ -50,24 +51,34 @@ public sealed class LogCleanupJob(
                          .Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 scanned++;
-                var info = new FileInfo(file);
-                if (info.LastWriteTimeUtc >= cutoff)
+                try
                 {
-                    continue;
-                }
+                    var info = new FileInfo(file);
+                    if (info.LastWriteTimeUtc >= cutoff)
+                    {
+                        continue;
+                    }
 
-                freedBytes += info.Length;
-                info.Delete();
-                deleted++;
+                    var bytes = info.Length;
+                    info.Delete();
+                    freedBytes += bytes;
+                    deleted++;
+                }
+                catch (Exception ex)
+                {
+                    // 单文件被占用/只读不打断整轮清扫（该任务的目的就是持续防膨胀）
+                    failed++;
+                    logger.LogWarning(ex, "日志文件删除失败，跳过：{File}", file);
+                }
             }
         }
 
         var freedMb = freedBytes / 1024.0 / 1024.0;
         progress.SetProgress(100);
-        progress.WriteLine($"日志清理完成：扫描 {scanned} 个，删除 {deleted} 个，释放 {freedMb:F1} MB。");
+        progress.WriteLine($"日志清理完成：扫描 {scanned} 个，删除 {deleted} 个，失败 {failed} 个，释放 {freedMb:F1} MB。");
         logger.LogInformation(
-            "日志清理完成：目录 {Directories}，扫描 {Scanned}，删除 {Deleted}，释放 {FreedMb:F1} MB。",
-            string.Join("; ", directories), scanned, deleted, freedMb);
+            "日志清理完成：目录 {Directories}，扫描 {Scanned}，删除 {Deleted}，失败 {Failed}，释放 {FreedMb:F1} MB。",
+            string.Join("; ", directories), scanned, deleted, failed, freedMb);
         return Task.CompletedTask;
     }
 }

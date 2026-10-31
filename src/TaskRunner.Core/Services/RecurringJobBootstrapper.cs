@@ -58,7 +58,13 @@ public sealed class RecurringJobBootstrapper(
         }
 
         // Hangfire 里可能仍残留已删任务的 recurring（库表已清也不会自动消失）。
-        var pruned = scheduler.PruneRecurringExcept(catalog.RecurringJobs.Select(job => job.JobId).ToList());
+        // 保留清单 = 发现集 ∪ 库中现存行（含宽限期内暂不删除的版本偏斜孤儿）——
+        // 否则旧版本进程会把新版本刚注册的 recurring 当残留摘除。
+        var pruneKeep = catalog.RecurringJobs.Select(job => job.JobId)
+            .Concat(configs.Select(config => config.JobId))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var pruned = scheduler.PruneRecurringExcept(pruneKeep);
         foreach (var jobId in pruned)
         {
             logger.LogInformation("已从 Hangfire 清理残留 recurring {JobId}。", jobId);
