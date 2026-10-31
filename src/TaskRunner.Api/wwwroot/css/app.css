@@ -536,7 +536,6 @@ code {
 
 .cell-action { text-align: right; }
 .cell-action form { display: inline-flex; margin: 0; }
-.cell-action .btn-reason { display: block; margin-top: 4px; font-size: 11px; }
 
 .badge {
     display: inline-block;

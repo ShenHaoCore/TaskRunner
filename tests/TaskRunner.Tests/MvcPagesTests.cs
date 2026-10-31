@@ -97,7 +97,8 @@ public sealed class MvcPagesTests
 
         var run = await client.GetAsync("/run?q=demo");
         Assert.Equal(HttpStatusCode.OK, run.StatusCode);
-        var html = await run.Content.ReadAsStringAsync();
+        // Razor 输出中文会 HTML 编码，先解码再断言
+        var html = WebUtility.HtmlDecode(await run.Content.ReadAsStringAsync());
         Assert.Contains("任务运行台", html, StringComparison.Ordinal);
         Assert.Contains("demo-job", html, StringComparison.Ordinal);
         Assert.Contains("立即运行", html, StringComparison.Ordinal);
