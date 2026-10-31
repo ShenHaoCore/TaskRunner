@@ -11,3 +11,6 @@
 *.ico binary
 *.zip binary
 *.snk binary
+
+# 锁定还原文件显式钉 LF：Windows 还原重写后凭 clean filter 消除幽灵 diff
+packages.lock.json text eol=lf

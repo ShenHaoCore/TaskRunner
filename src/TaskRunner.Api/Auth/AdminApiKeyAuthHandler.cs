@@ -37,7 +37,9 @@ public sealed class AdminApiKeyAuthHandler(
             return Task.CompletedTask;
         }
 
+        // 与 Dashboard/openapi 守卫一致：机器客户端的 401 必须携带 Basic 质询，方案才可被发现
         Response.StatusCode = StatusCodes.Status401Unauthorized;
+        Response.Headers.WWWAuthenticate = "Basic realm=\"TaskRunner\"";
         return Task.CompletedTask;
     }
 

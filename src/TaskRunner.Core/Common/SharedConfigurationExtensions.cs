@@ -15,7 +15,11 @@ public static class SharedConfigurationExtensions
     {
         for (var i = configuration.Sources.Count - 1; i >= 0; i--)
         {
-            if (configuration.Sources[i] is JsonConfigurationSource)
+            // 只移除宿主默认的 appsettings*.json 源（重新指向 BaseDirectory 的共享副本）。
+            // 不能按 JsonConfigurationSource 整类移除：UserSecretsConfigurationSource 继承自它，
+            // 误删会让 Development 下 user secrets 失效、回退到共享默认连接串（CHANGE_ME）。
+            if (configuration.Sources[i] is JsonConfigurationSource json
+                && json.Path?.StartsWith("appsettings.", StringComparison.OrdinalIgnoreCase) == true)
             {
                 configuration.Sources.RemoveAt(i);
             }

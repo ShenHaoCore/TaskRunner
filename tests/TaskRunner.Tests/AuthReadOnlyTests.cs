@@ -29,6 +29,50 @@ public sealed class AuthReadOnlyTests
     }
 
     [Fact]
+    public async Task ReadOnlyMode_AllowsLoginFlow_BlocksTaskWrites()
+    {
+        using var app = NewApp(readOnly: true);
+        app.Seed(Seed.Demo());
+
+        var client = app.CreateClient();
+
+        // 只读挡的是任务写操作，不是认证流：登录/登出必须可用
+        var login = await client.PostAsJsonAsync("/api/auth/login", new { username = Username, password = Password });
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+
+        // 任务写操作仍被拦截
+        var pause = await client.PostAsync("/api/tasks/demo-job/pause", null);
+        Assert.Equal(HttpStatusCode.Forbidden, pause.StatusCode);
+    }
+
+    [Fact]
+    public async Task MachineChallenge_CarriesBasicWwwAuthenticate()
+    {
+        using var app = NewApp();
+
+        var response = await app.Client.GetAsync("/api/tasks");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        // 与 Dashboard/openapi 守卫一致：方案可被发现
+        Assert.Contains("Basic", response.Headers.WwwAuthenticate.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CronPreview_InProduction_RequiresAdminCredentials()
+    {
+        using var app = NewApp();
+        app.Seed(Seed.Demo());
+
+        // 生产形态下 cron-preview 与其他 /api/tasks 端点同受管理员策略保护（类级 [Authorize]）
+        var anonymous = await app.Client.GetAsync("/api/tasks/cron-preview?expr=%40daily");
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+
+        var authorized = NewClient(app);
+        authorized.DefaultRequestHeaders.Add(AdminAuthDefaults.HeaderName, Key);
+        var ok = await authorized.GetAsync("/api/tasks/cron-preview?expr=%40daily");
+        Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+    }
+
+    [Fact]
     public async Task ApiKey_AcceptedViaHeaderCookieSessionAndBasic_Equivalently()
     {
         using var app = NewApp();

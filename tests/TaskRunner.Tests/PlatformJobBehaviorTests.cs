@@ -55,6 +55,7 @@ public sealed class PlatformJobBehaviorTests
     public async Task SelfCheck_ReportsChecklist_WithoutThrowing()
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"tr-selfcheck-{Guid.NewGuid():N}.db");
+        var logDirectory = Path.Combine(Path.GetTempPath(), $"tr-selfcheck-logs-{Guid.NewGuid():N}");
         var optionsBuilder = new DbContextOptionsBuilder<TaskRunnerDbContext>().UseSqlite($"Data Source={dbPath}");
         await using var db = new TaskRunnerDbContext(optionsBuilder.Options);
         await db.Database.EnsureCreatedAsync();
@@ -62,19 +63,70 @@ public sealed class PlatformJobBehaviorTests
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Serilog:WriteTo:0:Name"] = "File",
-            ["Serilog:WriteTo:0:Args:path"] = "logs/self-check-.log"
+            ["Serilog:WriteTo:0:Args:path"] = Path.Combine(logDirectory, "self-check-.log")
         }).Build();
         var options = new TaskRunnerOptions { HeartbeatEnabled = true };
 
-        var job = new PlatformSelfCheckJob(db, configuration, Options.Create(options), _progress, NullLogger<PlatformSelfCheckJob>.Instance);
-        var exception = await Record.ExceptionAsync(() => job.ExecuteAsync(CancellationToken.None));
+        try
+        {
+            var job = new PlatformSelfCheckJob(db, configuration, Options.Create(options), _progress, NullLogger<PlatformSelfCheckJob>.Instance);
+            var exception = await Record.ExceptionAsync(() => job.ExecuteAsync(CancellationToken.None));
 
-        Assert.Null(exception);
-        Assert.Contains(_progress.Lines, line => line.Contains("业务库连通", StringComparison.Ordinal));
-        Assert.Contains(_progress.Lines, line => line.Contains("日志目录可写", StringComparison.Ordinal));
-        Assert.Contains(_progress.Lines, line => line.Contains("自检通过", StringComparison.Ordinal));
-        SqliteConnection.ClearAllPools();
-        if (File.Exists(dbPath)) { File.Delete(dbPath); }
+            Assert.Null(exception);
+            Assert.Contains(_progress.Lines, line => line.Contains("业务库连通", StringComparison.Ordinal));
+            Assert.Contains(_progress.Lines, line => line.Contains("日志目录可写", StringComparison.Ordinal));
+            Assert.Contains(_progress.Lines, line => line.Contains("自检通过", StringComparison.Ordinal));
+            // 探针文件不留残留（写成功但删除前出异常的路径由 finally 兜底）
+            Assert.Empty(Directory.GetFiles(logDirectory, ".self-check-*.tmp"));
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(dbPath)) { File.Delete(dbPath); }
+            if (Directory.Exists(logDirectory)) { Directory.Delete(logDirectory, recursive: true); }
+        }
+    }
+
+    [Fact]
+    public async Task LogCleanup_SkipsUndeletableFile_ContinuesOthers()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            // POSIX 下只读属性不影响删除，该场景仅在 Windows 可复现
+            return;
+        }
+
+        var logDirectory = Path.Combine(Path.GetTempPath(), $"tr-logs-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(logDirectory);
+        var deletable = Path.Combine(logDirectory, "a.log");
+        var locked = Path.Combine(logDirectory, "b.log");
+        try
+        {
+            await File.WriteAllTextAsync(deletable, "old-a");
+            await File.WriteAllTextAsync(locked, "old-b");
+            File.SetLastWriteTimeUtc(deletable, DateTime.UtcNow.AddDays(-30));
+            File.SetLastWriteTimeUtc(locked, DateTime.UtcNow.AddDays(-30));
+            File.SetAttributes(locked, FileAttributes.ReadOnly);
+
+            var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Serilog:WriteTo:0:Name"] = "File",
+                ["Serilog:WriteTo:0:Args:path"] = Path.Combine(logDirectory, "app-.log")
+            }).Build();
+
+            var job = new LogCleanupJob(configuration, Options.Create(new TaskRunnerOptions { LogRetentionDays = 14 }), _progress, NullLogger<LogCleanupJob>.Instance);
+            var exception = await Record.ExceptionAsync(() => job.ExecuteAsync(CancellationToken.None));
+
+            Assert.Null(exception); // 单文件失败不打断整轮
+            Assert.False(File.Exists(deletable));
+            Assert.True(File.Exists(locked));
+            Assert.Contains(_progress.Lines, line => line.Contains("删除 1 个", StringComparison.Ordinal) && line.Contains("失败 1 个", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.SetAttributes(locked, FileAttributes.Normal);
+            Directory.Delete(logDirectory, recursive: true);
+        }
     }
 
     [Fact]

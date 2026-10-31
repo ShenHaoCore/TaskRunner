@@ -14,13 +14,30 @@ function refreshLocalTimes(root) {
 refreshLocalTimes();
 
 // 表单提交后禁用提交按钮直到页面跳转，防双击重复触发
-//（PRG 重定向回来是新页面，按钮自然恢复；此前 3 秒定时恢复在慢网络下可重复入队）
+//（PRG 重定向回来是新页面，按钮自然恢复）。
+// 多提交按钮表单（批量条的 暂停/恢复/触发）：禁用的字段不进 FormData——必须先把
+// 提交器的 name/value 写入隐藏域再禁用，否则丢失 action 字段、批量暂停必然失败。
 document.querySelectorAll("form[data-submit-once]").forEach(function (form) {
-    form.addEventListener("submit", function () {
-        var button = form.querySelector("button[type=submit]");
-        if (!button || button.disabled) { return; }
-        button.disabled = true;
-        button.setAttribute("aria-busy", "true");
+    form.addEventListener("submit", function (event) {
+        var submitter = event.submitter;
+        if (submitter && submitter.name) {
+            var carrier = form.querySelector("input[data-submit-once-carrier]");
+            if (!carrier) {
+                carrier = document.createElement("input");
+                carrier.type = "hidden";
+                carrier.setAttribute("data-submit-once-carrier", "");
+                form.appendChild(carrier);
+            }
+            carrier.name = submitter.name;
+            carrier.value = submitter.value;
+        }
+
+        form.querySelectorAll("button[type=submit]").forEach(function (button) {
+            if (!button.disabled) {
+                button.disabled = true;
+                button.setAttribute("aria-busy", "true");
+            }
+        });
     });
 });
 
@@ -29,36 +46,38 @@ document.querySelectorAll("form[data-submit-once]").forEach(function (form) {
 (function () {
     var VISIBLE_MS = 5000, LEAVING_MS = 300;
 
-    function dismiss(el) {
-        el.classList.add("flash-leaving");
-        setTimeout(function () { el.remove(); }, LEAVING_MS);
-    }
-
     document.querySelectorAll(".flash[data-auto-dismiss='true']").forEach(function (el) {
         var remaining = VISIBLE_MS;
         var startedAt = 0;
         var timer = 0;
         var hovered = false;
+        var listeners = new AbortController();
+
+        function dismissSelf() {
+            listeners.abort(); // 元素移除后解绑 document 级监听，不留悬挂闭包
+            el.classList.add("flash-leaving");
+            setTimeout(function () { el.remove(); }, LEAVING_MS);
+        }
 
         function pause() {
             if (!timer) { return; }
             clearTimeout(timer);
             timer = 0;
             remaining = Math.max(0, remaining - (Date.now() - startedAt));
-            if (remaining <= 0) { dismiss(el); }
+            if (remaining <= 0) { dismissSelf(); }
         }
 
         function resume() {
             if (timer || remaining <= 0 || el.classList.contains("flash-leaving")) { return; }
             startedAt = Date.now();
-            timer = setTimeout(function () { timer = 0; dismiss(el); }, remaining);
+            timer = setTimeout(function () { timer = 0; dismissSelf(); }, remaining);
         }
 
-        el.addEventListener("mouseenter", function () { hovered = true; pause(); });
-        el.addEventListener("mouseleave", function () { hovered = false; resume(); });
+        el.addEventListener("mouseenter", function () { hovered = true; pause(); }, { signal: listeners.signal });
+        el.addEventListener("mouseleave", function () { hovered = false; resume(); }, { signal: listeners.signal });
         document.addEventListener("visibilitychange", function () {
             (document.hidden || hovered) ? pause() : resume();
-        });
+        }, { signal: listeners.signal });
 
         // 后台打开的标签页不提前倒计时，首次可见才计时
         if (!document.hidden) { resume(); }
@@ -76,8 +95,16 @@ document.querySelectorAll("form[data-submit-once]").forEach(function (form) {
     var hiddenAt = 0;
 
     function interactionOpen() {
-        return document.querySelector(".cron-editor:not([hidden])") !== null
-            || document.querySelector(".detail-row:not([hidden])") !== null;
+        // hidden 属性在 <tr> 上（.cron-editor 是其内层 form，自身恒无 hidden）——必须查行
+        if (document.querySelector(".cron-row:not([hidden])")
+            || document.querySelector(".detail-row:not([hidden])")) {
+            return true;
+        }
+
+        // 焦点在输入控件内时不刷新，避免用户输入被整页重载吞掉
+        var active = document.activeElement;
+        return active !== null
+            && (active.tagName === "INPUT" || active.tagName === "SELECT" || active.tagName === "TEXTAREA");
     }
 
     setInterval(function () {
@@ -163,6 +190,7 @@ document.querySelectorAll("form[data-submit-once]").forEach(function (form) {
         var input = form.querySelector("input[name=cron]");
         var preview = form.querySelector(".cron-preview");
         var timer = 0;
+        var requestSeq = 0;
 
         form.querySelector("[data-cron-cancel]").addEventListener("click", function () {
             setOpen(jobId, false);
@@ -173,11 +201,13 @@ document.querySelectorAll("form[data-submit-once]").forEach(function (form) {
             var expr = input.value.trim();
             if (!expr) { preview.textContent = ""; return; }
             timer = setTimeout(function () {
+                var seq = ++requestSeq; // 慢的旧请求后到不得覆盖新表达式的结果
                 fetch("/api/tasks/cron-preview?expr=" + encodeURIComponent(expr), {
                     headers: { Accept: "application/json" }
                 })
                     .then(function (response) { return response.ok ? response.json() : Promise.reject(); })
                     .then(function (data) {
+                        if (seq !== requestSeq) { return; }
                         var items = (data && data.occurrences) || [];
                         if (!items.length) {
                             preview.textContent = "该表达式没有更多执行时间";
@@ -187,11 +217,13 @@ document.querySelectorAll("form[data-submit-once]").forEach(function (form) {
                         items.forEach(function (iso) {
                             var time = document.createElement("time");
                             time.setAttribute("datetime", iso);
+                            time.setAttribute("data-local-time", "");
                             preview.appendChild(time);
                         });
                         refreshLocalTimes(preview);
                     })
                     .catch(function () {
+                        if (seq !== requestSeq) { return; }
                         preview.textContent = "无法预览（表达式无效或服务不可用）";
                     });
             }, 300);
@@ -233,8 +265,11 @@ document.querySelectorAll("form[data-submit-once]").forEach(function (form) {
                         line.appendChild(dot);
                         var time = document.createElement("time");
                         time.setAttribute("datetime", item.occurredAt || "");
-                        time.textContent = item.occurredAt ? "" : "—";
+                        time.setAttribute("data-local-time", "");
                         line.appendChild(time);
+                        if (!item.occurredAt) {
+                            time.textContent = "—";
+                        }
                         if (item.reason) {
                             var reason = document.createElement("span");
                             reason.className = "muted";

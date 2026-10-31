@@ -83,6 +83,50 @@ public sealed class TaskConfigRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task RemoveMissing_DeferredWithinGraceWindow_RemovesAfterGrace()
+    {
+        await using (var scope = _provider.CreateAsyncScope())
+        {
+            var repository = scope.ServiceProvider.GetRequiredService<ITaskConfigRepository>();
+            await repository.InitializeAsync(CancellationToken.None);
+
+            await repository.SyncDiscoveredAsync(
+            [
+                new RecurringJobDescriptor("keep", "Keep", "*/5 * * * * *", "T, A", typeof(string), null, true),
+                new RecurringJobDescriptor("gone", "Gone", "*/5 * * * * *", "T, A", typeof(string), null, true)
+            ], CancellationToken.None);
+        }
+
+        // 宽限期内（如滚动升级中旧进程的发现集）缺失任务只观察不删除
+        await using (var scope = _provider.CreateAsyncScope())
+        {
+            var repository = scope.ServiceProvider.GetRequiredService<ITaskConfigRepository>();
+            var removed = await repository.RemoveMissingAsync(["keep"], CancellationToken.None);
+            Assert.Empty(removed);
+            Assert.NotNull(await repository.FindAsync("gone", CancellationToken.None));
+        }
+
+        // 回拨超过宽限期 → 真废弃，清理
+        await using (var scope = _provider.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<TaskRunnerDbContext>();
+            await db.TaskConfigs
+                .Where(row => row.JobId == "gone")
+                .ExecuteUpdateAsync(
+                    setter => setter.SetProperty(row => row.UpdatedAt, DateTime.UtcNow.AddMinutes(-TaskRunner.Core.Services.TaskConfigRepository.OrphanGraceMinutes - 1)),
+                    CancellationToken.None);
+        }
+
+        await using (var scope = _provider.CreateAsyncScope())
+        {
+            var repository = scope.ServiceProvider.GetRequiredService<ITaskConfigRepository>();
+            var removed = await repository.RemoveMissingAsync(["keep"], CancellationToken.None);
+            Assert.Equal(["gone"], removed);
+            Assert.Null(await repository.FindAsync("gone", CancellationToken.None));
+        }
+    }
+
+    [Fact]
     public async Task UpdateAsync_UsesPreloadedRow_AndPersists()
     {
         await using var scope = _provider.CreateAsyncScope();
@@ -115,10 +159,23 @@ public sealed class TaskConfigRepositoryTests : IDisposable
             new RecurringJobDescriptor("gone", "Gone", "*/5 * * * * *", "T, A", typeof(string), null, true)
         ], CancellationToken.None);
 
-        var removed = await repository.RemoveMissingAsync(["keep"], CancellationToken.None);
+        // 孤儿已存在超过宽限期（模拟代码删除后久未运行的场景）
+        await using (var updateScope = _provider.CreateAsyncScope())
+        {
+            var db = updateScope.ServiceProvider.GetRequiredService<TaskRunnerDbContext>();
+            await db.TaskConfigs
+                .Where(row => row.JobId == "gone")
+                .ExecuteUpdateAsync(
+                    setter => setter.SetProperty(row => row.UpdatedAt, DateTime.UtcNow.AddMinutes(-TaskRunner.Core.Services.TaskConfigRepository.OrphanGraceMinutes - 1)),
+                    CancellationToken.None);
+        }
+
+        await using var verifyScope = _provider.CreateAsyncScope();
+        var verifyRepository = verifyScope.ServiceProvider.GetRequiredService<ITaskConfigRepository>();
+        var removed = await verifyRepository.RemoveMissingAsync(["keep"], CancellationToken.None);
         Assert.Equal(["gone"], removed);
-        Assert.Null(await repository.FindAsync("gone", CancellationToken.None));
-        Assert.NotNull(await repository.FindAsync("keep", CancellationToken.None));
+        Assert.Null(await verifyRepository.FindAsync("gone", CancellationToken.None));
+        Assert.NotNull(await verifyRepository.FindAsync("keep", CancellationToken.None));
     }
 
     public void Dispose()
