@@ -9,7 +9,11 @@ public sealed class ReadOnlyGuardFilter(IOptions<TaskRunnerOptions> options) : I
 {
     public Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
-        if (!HttpMethods.IsGet(context.HttpContext.Request.Method) && options.Value.ReadOnlyMode)
+        // 只读挡的是「任务写操作」，不是认证流——登录/登出被 403 拦死会让只读模式下
+        // 连登录页都提交不了（已登录用户也无法登出）。
+        if (!HttpMethods.IsGet(context.HttpContext.Request.Method)
+            && !IsAuthFlow(context.HttpContext.Request.Path)
+            && options.Value.ReadOnlyMode)
         {
             context.Result = new ObjectResult(new ProblemDetails
             {
@@ -25,4 +29,9 @@ public sealed class ReadOnlyGuardFilter(IOptions<TaskRunnerOptions> options) : I
 
         return next();
     }
+
+    private static bool IsAuthFlow(PathString path) =>
+        path.StartsWithSegments("/login", StringComparison.OrdinalIgnoreCase)
+        || path.StartsWithSegments("/logout", StringComparison.OrdinalIgnoreCase)
+        || path.StartsWithSegments("/api/auth", StringComparison.OrdinalIgnoreCase);
 }
