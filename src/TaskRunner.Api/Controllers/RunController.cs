@@ -87,13 +87,7 @@ public sealed class RunController(
             return RedirectToAction(nameof(Index));
         }
 
-        var config = await repository.FindAsync(jobId, cancellationToken);
-        if (config is null)
-        {
-            TempData.SetFlashError($"任务不存在：{jobId}");
-            return RedirectToAction(nameof(Index));
-        }
-
+        // UpdateCronAsync 内部按 JobId 查行并做 xmin 重试，null 即任务不存在，无需预查。
         var updated = await repository.UpdateCronAsync(jobId, trimmed, cancellationToken);
         if (updated is null)
         {
@@ -204,7 +198,7 @@ public sealed class RunController(
 
         CronExpressionGuard.EnsureValid(config.CronExpr);
         var resumed = await repository.UpdateAsync(config, row => row.IsEnabled = true, cancellationToken);
-        scheduler.AddOrUpdateRecurring(resumed!.JobId, resumed.JobType, resumed.CronExpr, resumed.Queue);
+        scheduler.AddOrUpdateRecurring(resumed!.JobId, resumed.JobType, resumed.CronExpr, resumed.EffectiveQueue);
         return null;
     }
 

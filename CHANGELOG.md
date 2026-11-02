@@ -2,6 +2,16 @@
 
 本项目的所有显著变更都记录在本文件。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 未发布
+
+### 修复
+
+- **`/api/tasks` ETag 再次误命中 304**：指纹只含 TaskConfigs，而视图含 Hangfire 运行态（上次/下次执行、最近状态）——任务每次执行后 ETag 不变，轮询客户端一直拿到过期状态；指纹现纳入运行态字段，依赖 If-None-Match 的客户端升级后首次请求会得到 200（新指纹）
+- 任务历史查询的 jobId 匹配与全站约定不一致（任意参数匹配 → 仅 Args[0]），避免其他参数恰好等于 JobId 时混入他人历史
+- Cron 预览 `NextOccurrences` 移除未使用的时区参数（该路径游标时区处理有误，且无调用方使用）；补秒级/@宏/闰日/count 钳制测试
+- 恢复任务注册队列统一使用 `EffectiveQueue`（REST 与运行台批量路径）；运行台改 Cron 去掉一次重复的按 JobId 预查
+- 新增 PostgreSQL 并发路径的 opt-in 集成测试（xmin 冲突重载重试、advisory lock 串行化）：设置 `TASKRUNNER_TEST_PG` 指向专用测试库后启用，默认跳过
+
 ## 3.11.1 - 2026-10-31
 
 ### 修复

@@ -29,12 +29,15 @@ public sealed class TasksController(
         CancellationToken cancellationToken = default)
     {
         var configs = await repository.ListAsync(cancellationToken);
+        var views = monitoring.ReadTasks(configs);
 
-        // 指纹：排序后 (JobId, UpdatedAt.Ticks) 序列的哈希 + 分页参数。
-        // 不用「数量+最大 UpdatedAt 秒级截断」：同一秒内连续两次写入会误命中 304（客户端拿到过期缓存），
-        // 且不同分页是不同表示，必须各自持有 ETag。
+        // 指纹：配置版本（UpdatedAt.Ticks）+ 运行态（LastExecution/NextExecution/LastJobState）+ 分页参数。
+        // 只哈希配置会让任务每次执行后 ETag 不变，客户端 If-None-Match 永远拿到 304 和过期的运行状态；
+        // 不同分页是不同表示，必须各自持有 ETag。
+        var configTicks = configs.ToDictionary(item => item.JobId, item => item.UpdatedAt.Ticks, StringComparer.Ordinal);
         var fingerprint = string.Join(";",
-            configs.OrderBy(item => item.JobId, StringComparer.Ordinal).Select(item => $"{item.JobId}:{item.UpdatedAt.Ticks}")) +
+            views.OrderBy(item => item.JobId, StringComparer.Ordinal).Select(item =>
+                $"{item.JobId}:{configTicks[item.JobId]}:{item.LastExecution?.Ticks}:{item.NextExecution?.Ticks}:{item.LastJobState}")) +
             $"|{page}:{pageSize}";
         var etag = $"W/\"{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(fingerprint)))[..16]}\"";
 
@@ -43,11 +46,10 @@ public sealed class TasksController(
             .Contains(etag, StringComparer.Ordinal))
         {
             Response.Headers.ETag = etag;
-            Response.Headers["X-Total-Count"] = configs.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            Response.Headers["X-Total-Count"] = views.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
             return StatusCode(StatusCodes.Status304NotModified);
         }
 
-        var views = monitoring.ReadTasks(configs);
         Response.Headers.ETag = etag;
         Response.Headers["X-Total-Count"] = views.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
@@ -194,7 +196,7 @@ public sealed class TasksController(
 
         // 复用已加载实体更新，避免 SetEnabledAsync 内部再按 JobId 重查同一行。
         config = await repository.UpdateAsync(config, row => row.IsEnabled = true, cancellationToken);
-        scheduler.AddOrUpdateRecurring(config!.JobId, config.JobType, config.CronExpr, config.Queue);
+        scheduler.AddOrUpdateRecurring(config!.JobId, config.JobType, config.CronExpr, config.EffectiveQueue);
         return Ok(monitoring.ReadOne(config));
     }
 
