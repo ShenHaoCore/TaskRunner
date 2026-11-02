@@ -23,8 +23,14 @@ public sealed class TaskControlServiceTests
         var now = DateTime.UtcNow;
         db.TaskConfigs.Add(new TaskConfig
         {
-            JobId = JobId, JobName = JobId, CronExpr = cron, JobType = "Demo",
-            Queue = queue ?? string.Empty, IsEnabled = enabled, CreatedAt = now, UpdatedAt = now
+            JobId = JobId,
+            JobName = JobId,
+            CronExpr = cron,
+            JobType = "Demo",
+            Queue = queue ?? string.Empty,
+            IsEnabled = enabled,
+            CreatedAt = now,
+            UpdatedAt = now
         });
         db.SaveChanges();
 

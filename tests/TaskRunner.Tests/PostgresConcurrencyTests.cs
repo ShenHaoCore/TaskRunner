@@ -38,8 +38,14 @@ public sealed class PostgresConcurrencyTests
         await setup.Database.MigrateAsync();
         setup.TaskConfigs.Add(new TaskConfig
         {
-            JobId = jobId, JobName = jobId, CronExpr = "0 0 * * *", JobType = "Demo",
-            Queue = "default", IsEnabled = true, CreatedAt = now, UpdatedAt = now
+            JobId = jobId,
+            JobName = jobId,
+            CronExpr = "0 0 * * *",
+            JobType = "Demo",
+            Queue = "default",
+            IsEnabled = true,
+            CreatedAt = now,
+            UpdatedAt = now
         });
         await setup.SaveChangesAsync();
 
