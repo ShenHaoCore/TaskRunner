@@ -6,7 +6,7 @@
 
 ### 重构
 
-- REST 与运行台的暂停 / 恢复 / 触发收敛为 Core 的 `TaskControlService`：校验顺序与调度副作用只此一份，消除双通道重复实现导致的行为漂移；附 5 个单元测试
+- REST 与运行台的暂停 / 恢复 / 触发 / 改 Cron 全部收敛为 Core 的 `TaskControlService`：校验顺序与调度副作用只此一份，消除双通道重复实现导致的行为漂移；附 8 个单元测试。控制器不再直接持有 `ITaskScheduler`
 - `/api/tasks` 列表 ETag 计算抽为独立 `ComputeETag` 方法；运行台批量操作的 action 中文名与处理器合并为一处映射（不再重复 switch）
 
 ### 修复

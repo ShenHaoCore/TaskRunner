@@ -36,7 +36,7 @@ public sealed class TaskControlServiceTests
     public async Task Trigger_WhenMissing_ReturnsNotFound()
     {
         var (service, scheduler, connection) = Build(enabled: true);
-        await using var db = connection;
+        await using var connectionLifetime = connection;
 
         var result = await service.TriggerAsync("no-such-job", null, CancellationToken.None);
 
@@ -48,7 +48,7 @@ public sealed class TaskControlServiceTests
     public async Task Trigger_WhenPaused_EnqueuesNothing()
     {
         var (service, scheduler, connection) = Build(enabled: false);
-        await using var db = connection;
+        await using var connectionLifetime = connection;
 
         var result = await service.TriggerAsync(JobId, null, CancellationToken.None);
 
@@ -61,7 +61,7 @@ public sealed class TaskControlServiceTests
     public async Task Trigger_WhenEnabled_UsesEffectiveQueue()
     {
         var (service, scheduler, connection) = Build(enabled: true, queue: null);
-        await using var db = connection;
+        await using var connectionLifetime = connection;
 
         var result = await service.TriggerAsync(JobId, null, CancellationToken.None);
 
@@ -75,17 +75,52 @@ public sealed class TaskControlServiceTests
     public async Task Resume_WithInvalidCron_ThrowsAndRegistersNothing()
     {
         var (service, scheduler, connection) = Build(enabled: false, cron: "not-a-cron");
-        await using var db = connection;
+        await using var connectionLifetime = connection;
 
         await Assert.ThrowsAsync<ArgumentException>(() => service.ResumeAsync(JobId, CancellationToken.None));
         Assert.Empty(scheduler.Added); // 脏配置不得静默注册 recurring
     }
 
     [Fact]
+    public async Task UpdateCron_WithInvalidCron_Throws()
+    {
+        var (service, scheduler, connection) = Build(enabled: true);
+        await using var connectionLifetime = connection;
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.UpdateCronAsync(JobId, "bad", CancellationToken.None));
+        Assert.Empty(scheduler.Added);
+    }
+
+    [Fact]
+    public async Task UpdateCron_WhenEnabled_ReregistersWithNewCron()
+    {
+        var (service, scheduler, connection) = Build(enabled: true);
+        await using var connectionLifetime = connection;
+
+        var config = await service.UpdateCronAsync(JobId, "0 3 * * *", CancellationToken.None);
+
+        Assert.NotNull(config);
+        Assert.Equal("0 3 * * *", config!.CronExpr);
+        Assert.Equal([$"{JobId}|0 3 * * *|default"], scheduler.Added);
+    }
+
+    [Fact]
+    public async Task UpdateCron_WhenPaused_SavesWithoutRegistering()
+    {
+        var (service, scheduler, connection) = Build(enabled: false);
+        await using var connectionLifetime = connection;
+
+        var config = await service.UpdateCronAsync(JobId, "0 3 * * *", CancellationToken.None);
+
+        Assert.NotNull(config);
+        Assert.Empty(scheduler.Added); // 暂停任务只保存，恢复时才注册
+    }
+
+    [Fact]
     public async Task Pause_DisablesAndRemovesRecurring()
     {
         var (service, scheduler, connection) = Build(enabled: true);
-        await using var db = connection;
+        await using var connectionLifetime = connection;
 
         var config = await service.PauseAsync(JobId, CancellationToken.None);
 

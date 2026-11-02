@@ -15,7 +15,6 @@ namespace TaskRunner.Api.Controllers;
 [Tags("任务管理")]
 public sealed class TasksController(
     ITaskConfigRepository repository,
-    ITaskScheduler scheduler,
     HangfireMonitoringReader monitoring,
     TaskControlService control) : ControllerBase
 {
@@ -143,17 +142,16 @@ public sealed class TasksController(
         }
 
         var result = await control.TriggerAsync(jobId, runAt, cancellationToken);
-        if (result.Status == TriggerStatus.NotFound) { return TaskNotFound(jobId); }
-        if (result.Status == TriggerStatus.Paused)
+        return result.Status switch
         {
-            return Problem(
+            TriggerStatus.NotFound => TaskNotFound(jobId),
+            TriggerStatus.Paused => Problem(
                 statusCode: StatusCodes.Status409Conflict,
                 title: "任务已暂停",
-                detail: $"任务 {jobId} 已暂停，请先恢复再触发。");
-        }
-
-        return AcceptedAtAction(nameof(Get), new { jobId },
-            new QueueJobResult(jobId, result.QueueJobId!, result.Scheduled));
+                detail: $"任务 {jobId} 已暂停，请先恢复再触发。"),
+            _ => AcceptedAtAction(nameof(Get), new { jobId },
+                new QueueJobResult(jobId, result.QueueJobId!, result.Scheduled))
+        };
     }
 
     [HttpPost("{jobId}/pause", Name = "PauseTask")]
@@ -188,10 +186,17 @@ public sealed class TasksController(
     [EndpointSummary("改 Cron")]
     public async Task<ActionResult<TaskConfigView>> UpdateCron(string jobId, UpdateCronRequest request, CancellationToken cancellationToken)
     {
-        if (InvalidCron(request.Cron) is { } invalid) { return invalid; }
-        var config = await repository.UpdateCronAsync(jobId, request.Cron, cancellationToken);
+        TaskConfig? config;
+        try
+        {
+            config = await control.UpdateCronAsync(jobId, request.Cron, cancellationToken);
+        }
+        catch (ArgumentException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Cron 无效", detail: ex.Message);
+        }
+
         if (config is null) { return TaskNotFound(jobId); }
-        if (config.IsEnabled) { scheduler.AddOrUpdateRecurring(config.JobId, config.JobType, config.CronExpr, config.EffectiveQueue); }
         return Ok(monitoring.ReadOne(config));
     }
 
@@ -212,20 +217,6 @@ public sealed class TasksController(
                 $"{item.JobId}:{configTicks[item.JobId]}:{item.LastExecution?.Ticks}:{item.NextExecution?.Ticks}:{item.LastJobState}")) +
             $"|{page}:{pageSize}";
         return $"W/\"{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(fingerprint)))[..16]}\"";
-    }
-
-    /// <summary>Cron 非法时返回 400 Problem，否则 null——写入口统一走这里，新增端点不易漏校验。</summary>
-    private ObjectResult? InvalidCron(string cron)
-    {
-        try
-        {
-            CronExpressionGuard.EnsureValid(cron);
-            return null;
-        }
-        catch (ArgumentException ex)
-        {
-            return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Cron 无效", detail: ex.Message);
-        }
     }
 
     private ObjectResult TaskNotFound(string jobId) =>

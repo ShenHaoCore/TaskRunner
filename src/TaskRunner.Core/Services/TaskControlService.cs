@@ -56,6 +56,28 @@ public sealed class TaskControlService(ITaskConfigRepository repository, ITaskSc
     }
 
     /// <summary>
+    /// 改 Cron：先校验表达式（非法抛 <see cref="ArgumentException"/>），更新配置；
+    /// 任务处于启用态时按新 Cron 重新注册 recurring（暂停任务只保存，恢复时再注册）。
+    /// 任务不存在返回 null。
+    /// </summary>
+    public async Task<TaskConfig?> UpdateCronAsync(string jobId, string cron, CancellationToken cancellationToken)
+    {
+        CronExpressionGuard.EnsureValid(cron);
+        var config = await repository.UpdateCronAsync(jobId, cron, cancellationToken);
+        if (config is null)
+        {
+            return null;
+        }
+
+        if (config.IsEnabled)
+        {
+            scheduler.AddOrUpdateRecurring(config.JobId, config.JobType, config.CronExpr, config.EffectiveQueue);
+        }
+
+        return config;
+    }
+
+    /// <summary>
     /// 手动触发：runAtUtc 为 null 立即入队，否则预约到该时刻。
     /// 任务不存在 / 已暂停时不会产生任何 Hangfire 作业。
     /// </summary>

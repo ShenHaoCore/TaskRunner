@@ -14,7 +14,6 @@ namespace TaskRunner.Api.Controllers;
 [Route("run")]
 public sealed class RunController(
     ITaskConfigRepository repository,
-    ITaskScheduler scheduler,
     HangfireMonitoringReader monitoring,
     TaskControlService control,
     IOptions<TaskRunnerOptions> options) : Controller
@@ -71,15 +70,15 @@ public sealed class RunController(
         return RedirectToAction(nameof(Index));
     }
 
-    /// <summary>行内改 Cron（运行台页面通道）：与 REST UpdateCron 同构，PRG + flash 反馈。</summary>
+    /// <summary>行内改 Cron（运行台页面通道）：与 REST UpdateCron 共用 TaskControlService，PRG + flash 反馈。</summary>
     [HttpPost("{jobId}/cron")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdateCron(string jobId, string? cron, CancellationToken cancellationToken)
     {
-        var trimmed = cron?.Trim() ?? "";
+        TaskConfig? updated;
         try
         {
-            CronExpressionGuard.EnsureValid(trimmed);
+            updated = await control.UpdateCronAsync(jobId, cron?.Trim() ?? "", cancellationToken);
         }
         catch (ArgumentException ex)
         {
@@ -87,18 +86,10 @@ public sealed class RunController(
             return RedirectToAction(nameof(Index));
         }
 
-        // UpdateCronAsync 内部按 JobId 查行并做 xmin 重试，null 即任务不存在，无需预查。
-        var updated = await repository.UpdateCronAsync(jobId, trimmed, cancellationToken);
         if (updated is null)
         {
             TempData.SetFlashError($"任务不存在：{jobId}");
             return RedirectToAction(nameof(Index));
-        }
-
-        // 暂停任务允许先改 Cron（保存不注册），恢复时按新 Cron 注册
-        if (updated.IsEnabled)
-        {
-            scheduler.AddOrUpdateRecurring(updated.JobId, updated.JobType, updated.CronExpr, updated.EffectiveQueue);
         }
 
         TempData.SetFlashSuccess($"已更新 {updated.JobId} 的 Cron：{updated.CronExpr}");
