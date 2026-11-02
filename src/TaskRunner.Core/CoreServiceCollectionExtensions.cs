@@ -39,6 +39,7 @@ public static class CoreServiceCollectionExtensions
 
         services.AddSingleton<IJobCatalog>(catalog);
         services.AddScoped<ITaskConfigRepository, TaskConfigRepository>();
+        services.AddScoped<TaskControlService>();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<JobExecutor>();
         services.AddScoped<JobProgressContext>();

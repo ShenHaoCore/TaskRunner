@@ -4,6 +4,11 @@
 
 ## 未发布
 
+### 重构
+
+- REST 与运行台的暂停 / 恢复 / 触发收敛为 Core 的 `TaskControlService`：校验顺序与调度副作用只此一份，消除双通道重复实现导致的行为漂移；附 5 个单元测试
+- `/api/tasks` 列表 ETag 计算抽为独立 `ComputeETag` 方法；运行台批量操作的 action 中文名与处理器合并为一处映射（不再重复 switch）
+
 ### 修复
 
 - **`/api/tasks` ETag 再次误命中 304**：指纹只含 TaskConfigs，而视图含 Hangfire 运行态（上次/下次执行、最近状态）——任务每次执行后 ETag 不变，轮询客户端一直拿到过期状态；指纹现纳入运行态字段，依赖 If-None-Match 的客户端升级后首次请求会得到 200（新指纹）
