@@ -11,7 +11,7 @@
     <PackageVersion Include="Hangfire.PostgreSql" Version="1.21.1" />
     <PackageVersion Include="IdentityStream.Hangfire.Console" Version="2.0.0" />
     <!-- Hangfire.Core 的传递依赖解析到 11.0.1（GHSA-5crp-9r3c-p9vr，High）；顶层提升到安全基线 13.0.3 -->
-    <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
 
     <!-- 数据访问（EF / Npgsql 同大版本对齐） -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.22" />
