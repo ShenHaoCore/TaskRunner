@@ -15,8 +15,8 @@ namespace TaskRunner.Api.Controllers;
 [Tags("任务管理")]
 public sealed class TasksController(
     ITaskConfigRepository repository,
-    ITaskScheduler scheduler,
-    HangfireMonitoringReader monitoring) : ControllerBase
+    HangfireMonitoringReader monitoring,
+    TaskControlService control) : ControllerBase
 {
     [HttpGet(Name = "ListTasks")]
     [EndpointSummary("列表")]
@@ -29,25 +29,19 @@ public sealed class TasksController(
         CancellationToken cancellationToken = default)
     {
         var configs = await repository.ListAsync(cancellationToken);
+        var views = monitoring.ReadTasks(configs);
 
-        // 指纹：排序后 (JobId, UpdatedAt.Ticks) 序列的哈希 + 分页参数。
-        // 不用「数量+最大 UpdatedAt 秒级截断」：同一秒内连续两次写入会误命中 304（客户端拿到过期缓存），
-        // 且不同分页是不同表示，必须各自持有 ETag。
-        var fingerprint = string.Join(";",
-            configs.OrderBy(item => item.JobId, StringComparer.Ordinal).Select(item => $"{item.JobId}:{item.UpdatedAt.Ticks}")) +
-            $"|{page}:{pageSize}";
-        var etag = $"W/\"{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(fingerprint)))[..16]}\"";
+        var etag = ComputeETag(views, configs, page, pageSize);
 
         if (Request.Headers.IfNoneMatch.ToString()
             .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .Contains(etag, StringComparer.Ordinal))
         {
             Response.Headers.ETag = etag;
-            Response.Headers["X-Total-Count"] = configs.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            Response.Headers["X-Total-Count"] = views.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
             return StatusCode(StatusCodes.Status304NotModified);
         }
 
-        var views = monitoring.ReadTasks(configs);
         Response.Headers.ETag = etag;
         Response.Headers["X-Total-Count"] = views.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
@@ -117,25 +111,7 @@ public sealed class TasksController(
         [FromBody] TriggerRequest? request,
         CancellationToken cancellationToken)
     {
-        var config = await repository.FindAsync(jobId, cancellationToken);
-        if (config is null) { return TaskNotFound(jobId); }
-        if (!config.IsEnabled)
-        {
-            return Problem(
-                statusCode: StatusCodes.Status409Conflict,
-                title: "任务已暂停",
-                detail: $"任务 {config.JobId} 已暂停，请先恢复再触发。");
-        }
-
-        var queue = config.EffectiveQueue;
-        if (request?.RunAt is null && request?.DelaySeconds is null)
-        {
-            var queueJobId = scheduler.Enqueue(config.JobId, config.JobType, queue);
-            return AcceptedAtAction(nameof(Get), new { jobId = config.JobId },
-                new QueueJobResult(config.JobId, queueJobId));
-        }
-
-        if (request.RunAt is not null && request.DelaySeconds is not null)
+        if (request?.RunAt is not null && request?.DelaySeconds is not null)
         {
             return Problem(
                 statusCode: StatusCodes.Status400BadRequest,
@@ -143,14 +119,10 @@ public sealed class TasksController(
                 detail: "runAt 与 delaySeconds 不能同时指定。");
         }
 
-        DateTimeOffset runAt;
-        if (request.RunAt is not null)
+        DateTimeOffset? runAt = request?.RunAt;
+        if (runAt is null && request?.DelaySeconds is not null)
         {
-            runAt = request.RunAt.Value;
-        }
-        else
-        {
-            if (request.DelaySeconds is null or <= 0)
+            if (request.DelaySeconds <= 0)
             {
                 return Problem(
                     statusCode: StatusCodes.Status400BadRequest,
@@ -161,7 +133,7 @@ public sealed class TasksController(
             runAt = DateTimeOffset.UtcNow.AddSeconds(request.DelaySeconds.Value);
         }
 
-        if (runAt <= DateTimeOffset.UtcNow)
+        if (runAt is not null && runAt <= DateTimeOffset.UtcNow)
         {
             return Problem(
                 statusCode: StatusCodes.Status400BadRequest,
@@ -169,18 +141,25 @@ public sealed class TasksController(
                 detail: "runAt 必须是未来时刻。");
         }
 
-        var scheduledId = scheduler.Schedule(config.JobId, config.JobType, queue, runAt);
-        return AcceptedAtAction(nameof(Get), new { jobId = config.JobId },
-            new QueueJobResult(config.JobId, scheduledId, Scheduled: true));
+        var result = await control.TriggerAsync(jobId, runAt, cancellationToken);
+        return result.Status switch
+        {
+            TriggerStatus.NotFound => TaskNotFound(jobId),
+            TriggerStatus.Paused => Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "任务已暂停",
+                detail: $"任务 {jobId} 已暂停，请先恢复再触发。"),
+            _ => AcceptedAtAction(nameof(Get), new { jobId },
+                new QueueJobResult(jobId, result.QueueJobId!, result.Scheduled))
+        };
     }
 
     [HttpPost("{jobId}/pause", Name = "PauseTask")]
     [EndpointSummary("暂停")]
     public async Task<ActionResult<TaskConfigView>> Pause(string jobId, CancellationToken cancellationToken)
     {
-        var config = await repository.SetEnabledAsync(jobId, false, cancellationToken);
+        var config = await control.PauseAsync(jobId, cancellationToken);
         if (config is null) { return TaskNotFound(jobId); }
-        scheduler.RemoveRecurring(config.JobId);
         return Ok(monitoring.ReadOne(config));
     }
 
@@ -188,13 +167,17 @@ public sealed class TasksController(
     [EndpointSummary("恢复")]
     public async Task<ActionResult<TaskConfigView>> Resume(string jobId, CancellationToken cancellationToken)
     {
-        var config = await repository.FindAsync(jobId, cancellationToken);
-        if (config is null) { return TaskNotFound(jobId); }
-        if (InvalidCron(config.CronExpr) is { } invalid) { return invalid; }
+        TaskConfig? config;
+        try
+        {
+            config = await control.ResumeAsync(jobId, cancellationToken);
+        }
+        catch (ArgumentException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Cron 无效", detail: ex.Message);
+        }
 
-        // 复用已加载实体更新，避免 SetEnabledAsync 内部再按 JobId 重查同一行。
-        config = await repository.UpdateAsync(config, row => row.IsEnabled = true, cancellationToken);
-        scheduler.AddOrUpdateRecurring(config!.JobId, config.JobType, config.CronExpr, config.Queue);
+        if (config is null) { return TaskNotFound(jobId); }
         return Ok(monitoring.ReadOne(config));
     }
 
@@ -203,25 +186,37 @@ public sealed class TasksController(
     [EndpointSummary("改 Cron")]
     public async Task<ActionResult<TaskConfigView>> UpdateCron(string jobId, UpdateCronRequest request, CancellationToken cancellationToken)
     {
-        if (InvalidCron(request.Cron) is { } invalid) { return invalid; }
-        var config = await repository.UpdateCronAsync(jobId, request.Cron, cancellationToken);
-        if (config is null) { return TaskNotFound(jobId); }
-        if (config.IsEnabled) { scheduler.AddOrUpdateRecurring(config.JobId, config.JobType, config.CronExpr, config.EffectiveQueue); }
-        return Ok(monitoring.ReadOne(config));
-    }
-
-    /// <summary>Cron 非法时返回 400 Problem，否则 null——写入口统一走这里，新增端点不易漏校验。</summary>
-    private ObjectResult? InvalidCron(string cron)
-    {
+        TaskConfig? config;
         try
         {
-            CronExpressionGuard.EnsureValid(cron);
-            return null;
+            config = await control.UpdateCronAsync(jobId, request.Cron, cancellationToken);
         }
         catch (ArgumentException ex)
         {
             return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Cron 无效", detail: ex.Message);
         }
+
+        if (config is null) { return TaskNotFound(jobId); }
+        return Ok(monitoring.ReadOne(config));
+    }
+
+    /// <summary>
+    /// 列表表示的 ETag：配置版本（UpdatedAt.Ticks）+ 运行态（上次/下次执行、最近状态）+ 分页参数。
+    /// 只哈希配置会让任务每次执行后 ETag 不变，客户端 If-None-Match 永远拿到 304 和过期的运行状态；
+    /// 不同分页是不同表示，必须各自持有 ETag。
+    /// </summary>
+    private static string ComputeETag(
+        IReadOnlyList<TaskConfigView> views,
+        IReadOnlyList<TaskConfig> configs,
+        int page,
+        int pageSize)
+    {
+        var configTicks = configs.ToDictionary(item => item.JobId, item => item.UpdatedAt.Ticks, StringComparer.Ordinal);
+        var fingerprint = string.Join(";",
+            views.OrderBy(item => item.JobId, StringComparer.Ordinal).Select(item =>
+                $"{item.JobId}:{configTicks[item.JobId]}:{item.LastExecution?.Ticks}:{item.NextExecution?.Ticks}:{item.LastJobState}")) +
+            $"|{page}:{pageSize}";
+        return $"W/\"{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(fingerprint)))[..16]}\"";
     }
 
     private ObjectResult TaskNotFound(string jobId) =>

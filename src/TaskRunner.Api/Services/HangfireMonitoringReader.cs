@@ -242,21 +242,10 @@ public sealed class HangfireMonitoringReader(JobStorage storage, IJobCatalog cat
         }
     }
 
+    /// <summary>与 <see cref="ExtractJobId"/> 同一约定：只看 Args[0]，其他参数（如类型名）
+    /// 恰好等于另一任务 JobId 时不应把别人的历史混进来。</summary>
     private static bool Matches(Job? job, string jobId)
-    {
-        if (job?.Args is null)
-        {
-            return false;
-        }
-
-        foreach (var arg in job.Args)
-        {
-            if (arg is string text && string.Equals(text, jobId, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+        => job?.Args is { Count: > 0 } args
+           && args[0] is string text
+           && string.Equals(text, jobId, StringComparison.Ordinal);
 }

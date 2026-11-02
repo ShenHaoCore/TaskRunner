@@ -14,8 +14,8 @@ namespace TaskRunner.Api.Controllers;
 [Route("run")]
 public sealed class RunController(
     ITaskConfigRepository repository,
-    ITaskScheduler scheduler,
     HangfireMonitoringReader monitoring,
+    TaskControlService control,
     IOptions<TaskRunnerOptions> options) : Controller
 {
     [HttpGet("/run")]
@@ -53,33 +53,32 @@ public sealed class RunController(
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Trigger(string jobId, CancellationToken cancellationToken)
     {
-        var config = await repository.FindAsync(jobId, cancellationToken);
-        if (config is null)
+        var result = await control.TriggerAsync(jobId, runAtUtc: null, cancellationToken);
+        switch (result.Status)
         {
-            TempData.SetFlashError($"任务不存在：{jobId}");
-            return RedirectToAction(nameof(Index));
+            case TriggerStatus.NotFound:
+                TempData.SetFlashError($"任务不存在：{jobId}");
+                break;
+            case TriggerStatus.Paused:
+                TempData.SetFlashError("任务已暂停，请先在任务列表或 Dashboard 恢复后再触发。");
+                break;
+            default:
+                TempData.SetFlashSuccess($"已入队 {jobId} → {result.QueueJobId}");
+                break;
         }
 
-        if (!config.IsEnabled)
-        {
-            TempData.SetFlashError("任务已暂停，请先在任务列表或 Dashboard 恢复后再触发。");
-            return RedirectToAction(nameof(Index));
-        }
-
-        var queueJobId = scheduler.Enqueue(config.JobId, config.JobType, config.EffectiveQueue);
-        TempData.SetFlashSuccess($"已入队 {config.JobId} → {queueJobId}");
         return RedirectToAction(nameof(Index));
     }
 
-    /// <summary>行内改 Cron（运行台页面通道）：与 REST UpdateCron 同构，PRG + flash 反馈。</summary>
+    /// <summary>行内改 Cron（运行台页面通道）：与 REST UpdateCron 共用 TaskControlService，PRG + flash 反馈。</summary>
     [HttpPost("{jobId}/cron")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdateCron(string jobId, string? cron, CancellationToken cancellationToken)
     {
-        var trimmed = cron?.Trim() ?? "";
+        TaskConfig? updated;
         try
         {
-            CronExpressionGuard.EnsureValid(trimmed);
+            updated = await control.UpdateCronAsync(jobId, cron?.Trim() ?? "", cancellationToken);
         }
         catch (ArgumentException ex)
         {
@@ -87,24 +86,10 @@ public sealed class RunController(
             return RedirectToAction(nameof(Index));
         }
 
-        var config = await repository.FindAsync(jobId, cancellationToken);
-        if (config is null)
-        {
-            TempData.SetFlashError($"任务不存在：{jobId}");
-            return RedirectToAction(nameof(Index));
-        }
-
-        var updated = await repository.UpdateCronAsync(jobId, trimmed, cancellationToken);
         if (updated is null)
         {
             TempData.SetFlashError($"任务不存在：{jobId}");
             return RedirectToAction(nameof(Index));
-        }
-
-        // 暂停任务允许先改 Cron（保存不注册），恢复时按新 Cron 注册
-        if (updated.IsEnabled)
-        {
-            scheduler.AddOrUpdateRecurring(updated.JobId, updated.JobType, updated.CronExpr, updated.EffectiveQueue);
         }
 
         TempData.SetFlashSuccess($"已更新 {updated.JobId} 的 Cron：{updated.CronExpr}");
@@ -123,14 +108,15 @@ public sealed class RunController(
             return RedirectToAction(nameof(Index));
         }
 
-        var actionName = action switch
+        // 操作名与处理器只映射一次：循环内不再重复 switch，新增操作时也不会两处漏改。
+        var (actionName, operation) = action switch
         {
-            "pause" => "暂停",
-            "resume" => "恢复",
-            "trigger" => "触发",
-            _ => null
+            "pause" => ("暂停", (Func<string, CancellationToken, Task<string?>>)PauseOneAsync),
+            "resume" => ("恢复", ResumeOneAsync),
+            "trigger" => ("触发", TriggerOneAsync),
+            _ => (null, null)
         };
-        if (actionName is null)
+        if (operation is null)
         {
             TempData.SetFlashError("未知操作。");
             return RedirectToAction(nameof(Index));
@@ -142,12 +128,7 @@ public sealed class RunController(
         {
             try
             {
-                var error = action switch
-                {
-                    "pause" => await PauseOneAsync(jobId, cancellationToken),
-                    "resume" => await ResumeOneAsync(jobId, cancellationToken),
-                    _ => await TriggerOneAsync(jobId, cancellationToken)
-                };
+                var error = await operation(jobId, cancellationToken);
                 if (error is null)
                 {
                     succeeded++;
@@ -182,48 +163,22 @@ public sealed class RunController(
 
     /// <returns>null 表示成功，否则为错误描述。</returns>
     private async Task<string?> PauseOneAsync(string jobId, CancellationToken cancellationToken)
-    {
-        var paused = await repository.SetEnabledAsync(jobId, false, cancellationToken);
-        if (paused is null)
-        {
-            return $"{jobId} 不存在";
-        }
+        => await control.PauseAsync(jobId, cancellationToken) is null ? $"{jobId} 不存在" : null;
 
-        scheduler.RemoveRecurring(jobId);
-        return null;
-    }
-
-    /// <returns>null 表示成功，否则为错误描述。恢复前校验 Cron，无效配置不静默注册。</returns>
+    /// <returns>null 表示成功，否则为错误描述。Cron 无效由服务抛出，统一走 Bulk 的异常汇总。</returns>
     private async Task<string?> ResumeOneAsync(string jobId, CancellationToken cancellationToken)
-    {
-        var config = await repository.FindAsync(jobId, cancellationToken);
-        if (config is null)
-        {
-            return $"{jobId} 不存在";
-        }
-
-        CronExpressionGuard.EnsureValid(config.CronExpr);
-        var resumed = await repository.UpdateAsync(config, row => row.IsEnabled = true, cancellationToken);
-        scheduler.AddOrUpdateRecurring(resumed!.JobId, resumed.JobType, resumed.CronExpr, resumed.Queue);
-        return null;
-    }
+        => await control.ResumeAsync(jobId, cancellationToken) is null ? $"{jobId} 不存在" : null;
 
     /// <returns>null 表示成功，否则为错误描述。</returns>
     private async Task<string?> TriggerOneAsync(string jobId, CancellationToken cancellationToken)
     {
-        var config = await repository.FindAsync(jobId, cancellationToken);
-        if (config is null)
+        var result = await control.TriggerAsync(jobId, runAtUtc: null, cancellationToken);
+        return result.Status switch
         {
-            return $"{jobId} 不存在";
-        }
-
-        if (!config.IsEnabled)
-        {
-            return $"{jobId} 已暂停";
-        }
-
-        scheduler.Enqueue(config.JobId, config.JobType, config.EffectiveQueue);
-        return null;
+            TriggerStatus.NotFound => $"{jobId} 不存在",
+            TriggerStatus.Paused => $"{jobId} 已暂停",
+            _ => null
+        };
     }
 
     public sealed record RunIndexViewModel(

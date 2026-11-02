@@ -26,7 +26,7 @@ public static class CronExpressionGuard
     /// （@宏 / 5 位分钟级 / 6 位含秒），供运行台行内编辑做保存前预览。
     /// 表达式合法但再无下一次（如年份耗尽）时返回不足 count 的结果。
     /// </summary>
-    public static IReadOnlyList<DateTime> NextOccurrences(string? cron, int count, TimeZoneInfo? timeZone = null)
+    public static IReadOnlyList<DateTime> NextOccurrences(string? cron, int count)
     {
         if (string.IsNullOrWhiteSpace(cron))
         {
@@ -35,13 +35,12 @@ public static class CronExpressionGuard
 
         count = Math.Clamp(count, 1, 10);
         var expression = Parse(cron);
-        var zone = timeZone ?? TimeZoneInfo.Utc;
 
         var occurrences = new List<DateTime>(count);
         var cursor = DateTime.UtcNow;
         for (var i = 0; i < count; i++)
         {
-            var next = expression.GetNextOccurrence(cursor, zone, inclusive: false);
+            var next = expression.GetNextOccurrence(cursor, TimeZoneInfo.Utc, inclusive: false);
             if (next is null)
             {
                 break;
