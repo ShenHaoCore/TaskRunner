@@ -42,9 +42,9 @@ gitGraph
     checkout "develop"
     merge "feature/exclusive-jobs" id: "merge exclusive"
     checkout "main"
-    merge "release/1.1.0" id: "merge release → main" tag: "v1.1.0"
+    merge "release/1.1.0" id: "release→main" tag: "v1.1.0"
     checkout "develop"
-    merge "release/1.1.0" id: "merge release → develop"
+    merge "release/1.1.0" id: "release→dev"
     checkout "main"
     branch "hotfix/1.1.1"
     commit id: "fix: 只读模式绕过"
@@ -52,9 +52,9 @@ gitGraph
     branch "feature/job-history"
     commit id: "feat: 执行历史"
     checkout "main"
-    merge "hotfix/1.1.1" id: "merge hotfix → main" tag: "v1.1.1"
+    merge "hotfix/1.1.1" id: "hotfix→main" tag: "v1.1.1"
     checkout "develop"
-    merge "hotfix/1.1.1" id: "merge hotfix → develop"
+    merge "hotfix/1.1.1" id: "hotfix→dev"
     merge "feature/job-history" id: "merge history"
 ```
 
@@ -105,9 +105,38 @@ git tag -a v1.1.0 -m "v1.1.0: <一句话说明>" && git push origin v1.1.0
 ```bash
 git switch main && git pull --ff-only        # 必须基于 main，修的才是线上那份
 git switch -c hotfix/1.1.1
-# 修复；PR → main（Merge commit），核对后打 v1.1.1（同发布第 3 步）
-# 双合：PR hotfix/1.1.1 → develop；若此刻存在 release 分支，也要把它合进 release
+# 修复并推送，然后按下面的顺序合并
 ```
+
+hotfix 的合并顺序是**单向的**：`main` 先合、先发布，再把同一个修复回合到 `develop`（以及正在冻结的 `release`），全程只用 Merge commit：
+
+```mermaid
+gitGraph
+    commit id: "v1.1.0"
+    branch "develop"
+    commit id: "新功能开发中"
+    checkout main
+    branch "hotfix/1.1.1"
+    commit id: "fix: 线上问题"
+    checkout main
+    merge "hotfix/1.1.1" id: "① PR → main" tag: "v1.1.1"
+    checkout develop
+    merge "hotfix/1.1.1" id: "② PR → develop"
+```
+
+| 步骤 | 动作 | 说明 |
+|---|---|---|
+| ① | PR `hotfix/1.1.1` → `main`（Merge commit），CI 绿后合并 | 让修复先进入生产分支 |
+| ② | 核对后打 annotated tag `v1.1.1` 并推送（同发布第 3 步） | tag 触发 CD 自动构建与 Release |
+| ③ | PR `hotfix/1.1.1` → `develop`（Merge commit） | 把修复带回集成主干，否则下个 release 会把 bug 带回线上 |
+| ④ | 若此刻存在 `release/x.y.z` 分支，再把 hotfix 合进该 release | 保证冻结中的版本也带上修复，避免刚发出去又复发 |
+| ⑤ | 全部合完后删除 `hotfix/1.1.1` 分支 | hotfix 是短命分支，归宿即删 |
+
+注意：
+
+- **顺序不能反**：必须先在 `main` 上打 tag 发布，再做 ③④ 的回合；回合不产生新版本、不打 tag。
+- 回合 `develop` 时若有冲突，在该 PR 上解决；**不要 rebase 或改动已合入 `main`、已打 tag 的 hotfix 提交**。
+- hotfix 只修线上问题，不夹带新功能；新功能仍走 `develop` 的常规流程。
 
 ## 平台保护（Rulesets）
 
