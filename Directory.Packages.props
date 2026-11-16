@@ -21,7 +21,7 @@
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
 
     <!-- 扩展族（9.0.x 对齐） -->
-    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.22" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.23" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="9.0.22" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.22" />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Physical" Version="9.0.22" />
